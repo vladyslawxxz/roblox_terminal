@@ -2,6 +2,7 @@ return {
 	"help",
 	"pwd",
 	"cd",
+	"ls",
 	"whoami",
 	"find",
 	"clear",
