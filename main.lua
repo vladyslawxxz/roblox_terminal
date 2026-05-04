@@ -71,37 +71,17 @@ screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
-local container = Instance.new("Frame")
-container.Name = "TerminalContainer"
-container.Size = UDim2.new(0, CONFIG.WindowSize.X + 20, 0, CONFIG.WindowSize.Y + 20)
-container.Position = UDim2.new(0.5, -(CONFIG.WindowSize.X + 20) / 2, 0.5, -(CONFIG.WindowSize.Y + 20) / 2)
-container.BackgroundTransparency = 1
-container.BorderSizePixel = 0
-container.Active = true
-container.Parent = screenGui
-
-local shadow = Instance.new("ImageLabel")
-shadow.BackgroundTransparency = 1
-shadow.Image = "rbxassetid://1316045217"
-shadow.ImageColor3 = Color3.new(0, 0, 0)
-shadow.ImageTransparency = 0.6
-shadow.ScaleType = Enum.ScaleType.Slice
-shadow.SliceCenter = Rect.new(10, 10, 118, 118)
-shadow.Size = UDim2.new(1, 0, 1, 0)
-shadow.Position = UDim2.new(0, 0, 0, 0)
-shadow.ZIndex = 0
-shadow.Parent = container
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "TerminalWindow"
 mainFrame.Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y)
-mainFrame.Position = UDim2.new(0, 10, 0, 10)
+mainFrame.Position = UDim2.new(0.5, -CONFIG.WindowSize.X / 2, 0.5, -CONFIG.WindowSize.Y / 2)
 mainFrame.BackgroundColor3 = CONFIG.BackgroundColor
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.ClipsDescendants = true
-mainFrame.ZIndex = 1
-mainFrame.Parent = container
+
+mainFrame.Parent = screenGui
 
 do
 	local c = Instance.new("UICorner")
@@ -333,11 +313,11 @@ end
 local function minimizeTerminal()
 	if State.isMinimized then return end
 	State.isMinimized = true
-	tween(container, {
-		Size = UDim2.new(0, CONFIG.WindowSize.X + 20, 0, 52),
+	tween(mainFrame, {
+		Size = UDim2.new(0, CONFIG.WindowSize.X, 0, 52),
 		Position = UDim2.new(
-			container.Position.X.Scale, container.Position.X.Offset,
-			container.Position.Y.Scale, container.Position.Y.Offset + CONFIG.WindowSize.Y - 32
+			mainFrame.Position.X.Scale, mainFrame.Position.X.Offset,
+			mainFrame.Position.Y.Scale, mainFrame.Position.Y.Offset + CONFIG.WindowSize.Y - 32
 		),
 	})
 	outputFrame.Visible = false
@@ -348,11 +328,11 @@ end
 local function restoreTerminal()
 	if not State.isMinimized then return end
 	State.isMinimized = false
-	tween(container, {
-		Size = UDim2.new(0, CONFIG.WindowSize.X + 20, 0, CONFIG.WindowSize.Y + 20),
+	tween(mainFrame, {
+		Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
 		Position = UDim2.new(
-			container.Position.X.Scale, container.Position.X.Offset,
-			container.Position.Y.Scale, container.Position.Y.Offset - CONFIG.WindowSize.Y + 32
+			mainFrame.Position.X.Scale, mainFrame.Position.X.Offset,
+			mainFrame.Position.Y.Scale, mainFrame.Position.Y.Offset - CONFIG.WindowSize.Y + 32
 		),
 	})
 	task.delay(CONFIG.AnimationDuration * 0.5, function()
@@ -364,15 +344,15 @@ end
 
 local function closeTerminal()
 	State.isVisible = false
-	tween(container, {
+	tween(mainFrame, {
 		Size = UDim2.new(0, 0, 0, 0),
 		Position = UDim2.new(
-			container.Position.X.Scale, container.Position.X.Offset + (CONFIG.WindowSize.X + 20) / 2,
-			container.Position.Y.Scale, container.Position.Y.Offset + (CONFIG.WindowSize.Y + 20) / 2
+			mainFrame.Position.X.Scale, mainFrame.Position.X.Offset + (CONFIG.WindowSize.X) / 2,
+			mainFrame.Position.Y.Scale, mainFrame.Position.Y.Offset + (CONFIG.WindowSize.Y) / 2
 		),
 	})
 	task.delay(CONFIG.AnimationDuration, function()
-		container.Visible = false
+		mainFrame.Visible = false
 		toggleBtn.Visible = true
 		tween(toggleBtn, { Size = UDim2.new(0, 50, 0, 50), BackgroundTransparency = 0 })
 	end)
@@ -384,11 +364,11 @@ local function openTerminal()
 	tween(toggleBtn, { Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1 })
 	task.delay(CONFIG.AnimationDuration, function()
 		toggleBtn.Visible = false
-		container.Visible = true
-		container.Size = UDim2.new(0, 0, 0, 0)
-		tween(container, {
-			Size = UDim2.new(0, CONFIG.WindowSize.X + 20, 0, CONFIG.WindowSize.Y + 20),
-			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X + 20) / 2, 0.5, -(CONFIG.WindowSize.Y + 20) / 2),
+		mainFrame.Visible = true
+		mainFrame.Size = UDim2.new(0, 0, 0, 0)
+		tween(mainFrame, {
+			Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
+			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X) / 2, 0.5, -(CONFIG.WindowSize.Y) / 2),
 		})
 	end)
 end
@@ -401,7 +381,7 @@ titleBar.InputBegan:Connect(function(input, gp)
 		or input.UserInputType == Enum.UserInputType.Touch then
 		dragging  = true
 		dragStart = input.Position
-		startPos  = container.Position
+		startPos  = mainFrame.Position
 	end
 end)
 
@@ -409,7 +389,7 @@ UserInputService.InputChanged:Connect(function(input)
 	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
 		or input.UserInputType == Enum.UserInputType.Touch) then
 		local delta = input.Position - dragStart
-		container.Position = UDim2.new(
+		mainFrame.Position = UDim2.new(
 			startPos.X.Scale, startPos.X.Offset + delta.X,
 			startPos.Y.Scale, startPos.Y.Offset + delta.Y
 		)
@@ -572,12 +552,12 @@ end)
 
 maximizeBtn.MouseButton1Click:Connect(function()
 	if mainFrame.Size.Y.Offset == CONFIG.WindowSize.Y then
-		tween(container, { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0) })
+		tween(mainFrame, { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0) })
 		tween(mainFrame, { Size = UDim2.new(1, -20, 1, -20) })
 	else
-		tween(container, {
-			Size = UDim2.new(0, CONFIG.WindowSize.X + 20, 0, CONFIG.WindowSize.Y + 20),
-			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X + 20) / 2, 0.5, -(CONFIG.WindowSize.Y + 20) / 2),
+		tween(mainFrame, {
+			Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
+			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X) / 2, 0.5, -(CONFIG.WindowSize.Y) / 2),
 		})
 		tween(mainFrame, { Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y) })
 	end
