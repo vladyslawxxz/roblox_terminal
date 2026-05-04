@@ -11,7 +11,7 @@ return {
 			-- No args, show current player
 			targetPlayer = Players.LocalPlayer
 		else
-			-- Search for player by name (partial match)
+			-- Search for player by name (partial match, case-insensitive)
 			local searchName = table.concat(args, " "):lower()
 			for _, plr in ipairs(Players:GetPlayers()) do
 				if plr.Name:lower():find(searchName, 1, true) then
@@ -21,7 +21,7 @@ return {
 			end
 			
 			if not targetPlayer then
-				ctx.printError("Player not found: " .. searchName)
+				ctx.printError("Player not found: " .. table.concat(args, " "))
 				return
 			end
 		end
@@ -39,15 +39,15 @@ return {
 		end
 		
 		ctx.printInfo("=== PLAYER INFO ===")
-		ctx.printLine("Name:       " .. targetPlayer.Name)
-		ctx.printLine("Display:    " .. targetPlayer.DisplayName)
-		ctx.printLine("UserId:     " .. tostring(targetPlayer.UserId))
+		ctx.printLine("Name:        " .. targetPlayer.Name)
+		ctx.printLine("Display:     " .. targetPlayer.DisplayName)
+		ctx.printLine("UserId:      " .. tostring(targetPlayer.UserId))
 		ctx.printLine("Account Age: " .. ageStr)
 		
 		if targetPlayer:FindFirstChild("Character") then
-			ctx.printLine("Status:     Online")
+			ctx.printLine("Status:      Online")
 		else
-			ctx.printLine("Status:     Offline/No Character")
+			ctx.printLine("Status:      Offline/No Character")
 		end
 	end,
 }
