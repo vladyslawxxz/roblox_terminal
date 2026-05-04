@@ -24,9 +24,11 @@ return {
 		end
 
 		for _, child in ipairs(children) do
-			ctx.printLine(child.Name .. " (" .. child.ClassName .. ")")
+			local line = child.Name .. " (" .. child.ClassName .. ")"
+			ctx.printLine(line)
 		end
 		
-		ctx.printInfo(string.format("Total: %d item(s)", #children))
+		local msg = string.format("Total: %d item(s)", #children)
+		ctx.printInfo(msg)
 	end,
 }
