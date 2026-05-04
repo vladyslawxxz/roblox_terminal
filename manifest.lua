@@ -8,4 +8,6 @@ return {
 	"mkdir",
 	"mv",
 	"rm",
+	"loadcmd",
+	"refcom",
 }
