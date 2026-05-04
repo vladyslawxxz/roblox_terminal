@@ -5,4 +5,7 @@ return {
 	"find",
 	"clear",
 	"echo",
+	"mkdir",
+	"mv",
+	"rm",
 }
