@@ -31,7 +31,6 @@ return {
 
 		local flag = args[1]
 
-		-- Встановити пакет
 		if flag == "-S" then
 			if #args < 2 then
 				ctx.printError("Usage: pacman -S @username/reponame")
@@ -91,7 +90,6 @@ return {
 				" (" .. args[2] .. ")"
 			)
 
-		-- Видалити пакет
 		elseif flag == "-R" then
 			if #args < 2 then
 				ctx.printError("Usage: pacman -R @username/reponame")
@@ -111,7 +109,6 @@ return {
 
 			ctx.printSuccess("removed: " .. entry.name .. " (" .. pkgKey .. ")")
 
-		-- Список встановлених
 		elseif flag == "-Q" then
 			local count = 0
 			for key, entry in pairs(installedPackages) do
