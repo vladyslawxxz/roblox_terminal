@@ -1,4 +1,4 @@
-local BASE_URL = "https://raw.githubusercontent.com/vladyslawxxx/roblox_terminal/main/"
+local BASE_URL = "https://raw.githubusercontent.com/vladyslawxxz/roblox_terminal/refs/heads/main/"
 
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
