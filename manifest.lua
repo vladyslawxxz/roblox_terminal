@@ -12,4 +12,5 @@ return {
 	"rm",
 	"loadcmd",
 	"refcom",
+	"playerlist",
 }
