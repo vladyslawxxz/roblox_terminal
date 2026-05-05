@@ -1,4 +1,4 @@
-local BASE_URL = "https://raw.githubusercontent.com/vladyslawxxz/roblox_terminal/main/"
+local BASE_URL = "https://raw.githubusercontent.com/vladyslawxxx/roblox_terminal/main/"
 
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
@@ -164,8 +164,6 @@ local minimizeBtn = makeWinBtn(10, "-")
 local maximizeBtn = makeWinBtn(44, "[]")
 local closeBtn    = makeWinBtn(78, "x")
 
-local minIcon = nil
-
 local outputFrame = Instance.new("ScrollingFrame")
 outputFrame.Name = "Output"
 outputFrame.Size = UDim2.new(1, -32, 1, -88)
@@ -242,6 +240,210 @@ promptLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
 end)
 promptLabel.Text = promptLabel.Text
 
+local MAX_SUGGESTIONS   = 7
+local autocompleteItems = {}
+local acSelectedIndex   = 0
+local acCurrentMatches  = {}
+
+local acFrame = Instance.new("Frame")
+acFrame.Name             = "AutocompleteMenu"
+acFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+acFrame.BorderSizePixel  = 0
+acFrame.Visible          = false
+acFrame.ZIndex           = 50
+acFrame.ClipsDescendants = false
+acFrame.Parent           = mainFrame
+
+do
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = acFrame
+	local stroke = Instance.new("UIStroke")
+	stroke.Color           = Color3.fromRGB(50, 50, 50)
+	stroke.Thickness       = 1
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent          = acFrame
+end
+
+local acList = Instance.new("UIListLayout")
+acList.SortOrder = Enum.SortOrder.LayoutOrder
+acList.Padding   = UDim.new(0, 0)
+acList.Parent    = acFrame
+
+local acPad = Instance.new("UIPadding")
+acPad.PaddingTop    = UDim.new(0, 4)
+acPad.PaddingBottom = UDim.new(0, 4)
+acPad.Parent        = acFrame
+
+local ITEM_H = 28
+local MENU_W = 260
+
+local function clearAcItems()
+	for _, f in ipairs(autocompleteItems) do f:Destroy() end
+	autocompleteItems = {}
+	acSelectedIndex   = 0
+end
+
+local function updateAcSelection()
+	for i, item in ipairs(autocompleteItems) do
+		local sel = (i == acSelectedIndex)
+		TweenService:Create(item, TweenInfo.new(0.08), {
+			BackgroundColor3 = sel and Color3.fromRGB(38, 38, 38) or Color3.fromRGB(20, 20, 20)
+		}):Play()
+		local nl = item:FindFirstChild("Name")
+		local dl = item:FindFirstChild("Desc")
+		if nl then
+			nl.TextColor3 = sel and Color3.fromRGB(210, 210, 210) or Color3.fromRGB(130, 130, 130)
+		end
+		if dl then
+			dl.TextColor3 = sel and Color3.fromRGB(100, 100, 100) or Color3.fromRGB(52, 52, 52)
+		end
+	end
+end
+
+local function hideAc()
+	acFrame.Visible  = false
+	clearAcItems()
+	acCurrentMatches = {}
+end
+
+local function buildAcItem(i, cmdName, cmdDesc, query)
+	local item = Instance.new("Frame")
+	item.Name             = "AcItem_" .. i
+	item.Size             = UDim2.new(0, MENU_W, 0, ITEM_H)
+	item.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	item.BorderSizePixel  = 0
+	item.ZIndex           = 51
+	item.LayoutOrder      = i
+	item.Parent           = acFrame
+
+	if i > 1 then
+		local div = Instance.new("Frame")
+		div.Size             = UDim2.new(1, -20, 0, 1)
+		div.Position         = UDim2.new(0, 10, 0, 0)
+		div.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+		div.BorderSizePixel  = 0
+		div.ZIndex           = 52
+		div.Parent           = item
+	end
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft  = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 8)
+	pad.Parent       = item
+
+	local highlighted = ""
+	local lname = cmdName:lower()
+	local lq    = query:lower()
+	local s, e  = lname:find(lq, 1, true)
+	if s then
+		highlighted = cmdName:sub(1, s - 1)
+			.. '<font color="rgb(180,180,255)">'
+			.. cmdName:sub(s, e)
+			.. '</font>'
+			.. cmdName:sub(e + 1)
+	else
+		highlighted = cmdName
+	end
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name                 = "Name"
+	nameLabel.Size                 = UDim2.new(0.55, 0, 1, 0)
+	nameLabel.Position             = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.RichText             = true
+	nameLabel.Text                 = highlighted
+	nameLabel.TextColor3           = Color3.fromRGB(130, 130, 130)
+	nameLabel.Font                 = CONFIG.Font
+	nameLabel.TextSize             = 12
+	nameLabel.TextXAlignment       = Enum.TextXAlignment.Left
+	nameLabel.ZIndex               = 52
+	nameLabel.Parent               = item
+
+	local descLabel = Instance.new("TextLabel")
+	descLabel.Name                 = "Desc"
+	descLabel.Size                 = UDim2.new(0.45, -4, 1, 0)
+	descLabel.Position             = UDim2.new(0.55, 4, 0, 0)
+	descLabel.BackgroundTransparency = 1
+	descLabel.Text                 = cmdDesc or ""
+	descLabel.TextColor3           = Color3.fromRGB(52, 52, 52)
+	descLabel.Font                 = CONFIG.Font
+	descLabel.TextSize             = 11
+	descLabel.TextXAlignment       = Enum.TextXAlignment.Left
+	descLabel.TextTruncate         = Enum.TextTruncate.AtEnd
+	descLabel.ZIndex               = 52
+	descLabel.Parent               = item
+
+	table.insert(autocompleteItems, item)
+	return item
+end
+
+local function showAc(matches, query)
+	clearAcItems()
+	if #matches == 0 then
+		acFrame.Visible = false
+		return
+	end
+	for i, m in ipairs(matches) do
+		buildAcItem(i, m.name, m.desc, query)
+	end
+	local totalH = #matches * ITEM_H + 8
+	acFrame.Size = UDim2.new(0, MENU_W, 0, totalH)
+	local inputAbsY = inputFrame.AbsolutePosition.Y
+	local inputAbsX = inputFrame.AbsolutePosition.X
+	local mainAbsY  = mainFrame.AbsolutePosition.Y
+	local mainAbsX  = mainFrame.AbsolutePosition.X
+	local relX = inputAbsX - mainAbsX + 12
+	local relY = inputAbsY - mainAbsY - totalH - 6
+	acFrame.Position = UDim2.new(0, relX, 0, relY)
+	acFrame.Visible  = true
+end
+
+local Commands = {}
+
+local function getMatches(query)
+	if not query or query == "" then return {} end
+	local results = {}
+	local q = query:lower()
+	for name, cmd in pairs(Commands) do
+		if name:lower():find(q, 1, true) then
+			table.insert(results, { name = name, desc = cmd.description or "" })
+		end
+		if cmd.aliases then
+			for _, alias in ipairs(cmd.aliases) do
+				if alias:lower():find(q, 1, true) then
+					local dup = false
+					for _, r in ipairs(results) do
+						if r.name == alias then dup = true break end
+					end
+					if not dup then
+						table.insert(results, { name = alias, desc = cmd.description or "" })
+					end
+				end
+			end
+		end
+	end
+	table.sort(results, function(a, b) return a.name < b.name end)
+	if #results > MAX_SUGGESTIONS then
+		local trimmed = {}
+		for i = 1, MAX_SUGGESTIONS do trimmed[i] = results[i] end
+		return trimmed
+	end
+	return results
+end
+
+inputBox:GetPropertyChangedSignal("Text"):Connect(function()
+	local text = inputBox.Text
+	if text == "" or text:find(" ") then
+		hideAc()
+		return
+	end
+	local matches = getMatches(text)
+	acCurrentMatches = matches
+	acSelectedIndex  = 0
+	showAc(matches, text)
+end)
+
 local toggleBtn = Instance.new("TextButton")
 toggleBtn.Size = UDim2.new(0, 44, 0, 44)
 toggleBtn.Position = UDim2.new(0, 16, 0, 16)
@@ -288,9 +490,9 @@ end
 local function printError(text)          createOutputLine("[ERROR] " .. text, CONFIG.ErrorColor) end
 local function printColored(text, color) createOutputLine(text, color)                           end
 local function createColor(r, g, b)      return Color3.fromRGB(r, g, b)                          end
-local function printSuccess(text) createOutputLine(text, CONFIG.SuccessColor)              end
-local function printInfo(text)    createOutputLine(text, CONFIG.InfoColor)                 end
-local function printLine(text)    createOutputLine(text)                                   end
+local function printSuccess(text) createOutputLine(text, CONFIG.SuccessColor) end
+local function printInfo(text)    createOutputLine(text, CONFIG.InfoColor)    end
+local function printLine(text)    createOutputLine(text)                      end
 
 local function clearConsole()
 	for _, line in ipairs(State.outputLines) do line:Destroy() end
@@ -351,7 +553,7 @@ local function minimizeTerminal()
 		),
 	})
 	outputFrame.Visible = false
-	inputFrame.Visible = false
+	inputFrame.Visible  = false
 end
 
 local function restoreTerminal()
@@ -366,12 +568,13 @@ local function restoreTerminal()
 	})
 	task.delay(CONFIG.AnimationDuration * 0.5, function()
 		outputFrame.Visible = true
-		inputFrame.Visible = true
+		inputFrame.Visible  = true
 	end)
 end
 
 local function closeTerminal()
 	State.isVisible = false
+	hideAc()
 	tween(mainFrame, {
 		Size = UDim2.new(0, 0, 0, 0),
 		Position = UDim2.new(
@@ -393,9 +596,9 @@ local function openTerminal()
 	task.delay(CONFIG.AnimationDuration, function()
 		toggleBtn.Visible = false
 		mainFrame.Visible = true
-		mainFrame.Size = UDim2.new(0, 0, 0, 0)
+		mainFrame.Size    = UDim2.new(0, 0, 0, 0)
 		tween(mainFrame, {
-			Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
+			Size     = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
 			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X) / 2, 0.5, -(CONFIG.WindowSize.Y) / 2),
 		})
 	end)
@@ -431,8 +634,6 @@ UserInputService.InputEnded:Connect(function(input)
 	end
 end)
 
-local Commands = {}
-
 local ctx = {
 	printError    = printError,
 	printSuccess  = printSuccess,
@@ -447,10 +648,10 @@ local ctx = {
 		State.currentDir  = dir
 		updatePrompt()
 	end,
-	previousDir   = function() return State.previousDir end,
-	printColored  = printColored,
-	createColor   = createColor,
-	commands      = Commands,
+	previousDir  = function() return State.previousDir end,
+	printColored = printColored,
+	createColor  = createColor,
+	commands     = Commands,
 }
 
 local function splitArgs(str)
@@ -474,15 +675,12 @@ end
 
 local function processCommand(input)
 	if not input or input == "" then return end
-
 	createOutputLine(CONFIG.PromptTemplate:gsub("{player}", player.Name) .. input, CONFIG.AccentColor)
 	table.insert(State.commandHistory, input)
 	State.historyIndex = #State.commandHistory + 1
-
 	local args    = splitArgs(input)
 	local cmdName = args[1]:lower()
 	table.remove(args, 1)
-
 	local cmd = Commands[cmdName]
 	if not cmd then
 		for _, c in pairs(Commands) do
@@ -494,15 +692,111 @@ local function processCommand(input)
 			if cmd then break end
 		end
 	end
-
 	if cmd then
 		local ok, err = pcall(function() cmd.execute(args, ctx) end)
 		if not ok then printError("Execution error: " .. tostring(err)) end
 	else
 		printError("Unknown command: '" .. cmdName .. "'. Type 'help' for a list of commands.")
 	end
-
 	createOutputLine("")
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if not inputBox:IsFocused() then return end
+
+	if input.KeyCode == Enum.KeyCode.Tab then
+		if acFrame.Visible and #acCurrentMatches > 0 then
+			local idx = acSelectedIndex > 0 and acSelectedIndex or 1
+			inputBox.Text = acCurrentMatches[idx].name
+			inputBox.CursorPosition = #inputBox.Text + 1
+			hideAc()
+		end
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.Up then
+		if acFrame.Visible and #autocompleteItems > 0 then
+			if acSelectedIndex <= 1 then
+				acSelectedIndex = #autocompleteItems
+			else
+				acSelectedIndex = acSelectedIndex - 1
+			end
+			updateAcSelection()
+		else
+			if State.historyIndex > 1 then
+				State.historyIndex = State.historyIndex - 1
+				inputBox.Text = State.commandHistory[State.historyIndex]
+				inputBox.CursorPosition = #inputBox.Text + 1
+			end
+		end
+	elseif input.KeyCode == Enum.KeyCode.Down then
+		if acFrame.Visible and #autocompleteItems > 0 then
+			if acSelectedIndex >= #autocompleteItems then
+				acSelectedIndex = 1
+			else
+				acSelectedIndex = acSelectedIndex + 1
+			end
+			updateAcSelection()
+		else
+			if State.historyIndex < #State.commandHistory then
+				State.historyIndex = State.historyIndex + 1
+				inputBox.Text = State.commandHistory[State.historyIndex]
+				inputBox.CursorPosition = #inputBox.Text + 1
+			elseif State.historyIndex == #State.commandHistory then
+				State.historyIndex = State.historyIndex + 1
+				inputBox.Text = ""
+			end
+		end
+	elseif input.KeyCode == Enum.KeyCode.Escape then
+		hideAc()
+	end
+end)
+
+inputBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		if acFrame.Visible and acSelectedIndex > 0 and acCurrentMatches[acSelectedIndex] then
+			inputBox.Text = acCurrentMatches[acSelectedIndex].name
+			inputBox.CursorPosition = #inputBox.Text + 1
+			hideAc()
+			task.wait(0.05)
+			inputBox:CaptureFocus()
+		else
+			hideAc()
+			processCommand(inputBox.Text)
+			inputBox.Text = ""
+			task.wait(0.05)
+			inputBox:CaptureFocus()
+		end
+	else
+		task.delay(0.15, function()
+			if not inputBox:IsFocused() then hideAc() end
+		end)
+	end
+end)
+
+minimizeBtn.MouseButton1Click:Connect(function()
+	if State.isMinimized then restoreTerminal() else minimizeTerminal() end
+end)
+
+maximizeBtn.MouseButton1Click:Connect(function()
+	if mainFrame.Size.Y.Offset == CONFIG.WindowSize.Y then
+		tween(mainFrame, { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0) })
+		tween(mainFrame, { Size = UDim2.new(1, -20, 1, -20) })
+	else
+		tween(mainFrame, {
+			Size     = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
+			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X) / 2, 0.5, -(CONFIG.WindowSize.Y) / 2),
+		})
+		tween(mainFrame, { Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y) })
+	end
+end)
+
+closeBtn.MouseButton1Click:Connect(closeTerminal)
+toggleBtn.MouseButton1Click:Connect(openTerminal)
+
+if UserInputService.TouchEnabled then
+	toggleBtn.Size = UDim2.new(0, 60, 0, 60)
 end
 
 local function loadCommandsWithSplash(onDone)
@@ -510,59 +804,59 @@ local function loadCommandsWithSplash(onDone)
 	local SH = CONFIG.WindowSize.Y / 2
 
 	local splash = Instance.new("Frame")
-	splash.Name = "SplashScreen"
-	splash.Size = UDim2.new(0, 0, 0, 0)
-	splash.Position = UDim2.new(0.5, 0, 0.5, 0)
-	splash.AnchorPoint = Vector2.new(0.5, 0.5)
-	splash.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
-	splash.BorderSizePixel = 0
+	splash.Name                = "SplashScreen"
+	splash.Size                = UDim2.new(0, 0, 0, 0)
+	splash.Position            = UDim2.new(0.5, 0, 0.5, 0)
+	splash.AnchorPoint         = Vector2.new(0.5, 0.5)
+	splash.BackgroundColor3    = Color3.fromRGB(17, 17, 17)
+	splash.BorderSizePixel     = 0
 	splash.BackgroundTransparency = 1
-	splash.ZIndex = 20
-	splash.Parent = screenGui
+	splash.ZIndex              = 20
+	splash.Parent              = screenGui
 	do
 		local c = Instance.new("UICorner")
 		c.CornerRadius = UDim.new(0, 10)
 		c.Parent = splash
 		local s = Instance.new("UIStroke")
-		s.Color = Color3.fromRGB(42, 42, 42)
-		s.Thickness = 1
-		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		s.ZIndex = 21
-		s.Parent = splash
+		s.Color            = Color3.fromRGB(42, 42, 42)
+		s.Thickness        = 1
+		s.ApplyStrokeMode  = Enum.ApplyStrokeMode.Border
+		s.ZIndex           = 21
+		s.Parent           = splash
 	end
 
 	local wordLabel = Instance.new("TextLabel")
-	wordLabel.Size = UDim2.new(1, -40, 0, 22)
-	wordLabel.Position = UDim2.new(0, 20, 0.5, -42)
+	wordLabel.Size               = UDim2.new(1, -40, 0, 22)
+	wordLabel.Position           = UDim2.new(0, 20, 0.5, -42)
 	wordLabel.BackgroundTransparency = 1
-	wordLabel.Text = "Linux Terminal"
-	wordLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-	wordLabel.TextTransparency = 1
-	wordLabel.Font = Enum.Font.Code
-	wordLabel.TextSize = 16
-	wordLabel.ZIndex = 21
-	wordLabel.Parent = splash
+	wordLabel.Text               = "Linux Terminal"
+	wordLabel.TextColor3         = Color3.fromRGB(180, 180, 180)
+	wordLabel.TextTransparency   = 1
+	wordLabel.Font               = Enum.Font.Code
+	wordLabel.TextSize           = 16
+	wordLabel.ZIndex             = 21
+	wordLabel.Parent             = splash
 
 	local statusLabel = Instance.new("TextLabel")
-	statusLabel.Size = UDim2.new(1, -40, 0, 14)
-	statusLabel.Position = UDim2.new(0, 20, 0.5, -14)
+	statusLabel.Size               = UDim2.new(1, -40, 0, 14)
+	statusLabel.Position           = UDim2.new(0, 20, 0.5, -14)
 	statusLabel.BackgroundTransparency = 1
-	statusLabel.Text = "initializing..."
-	statusLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
-	statusLabel.TextTransparency = 1
-	statusLabel.Font = Enum.Font.Code
-	statusLabel.TextSize = 11
-	statusLabel.ZIndex = 21
-	statusLabel.Parent = splash
+	statusLabel.Text               = "initializing..."
+	statusLabel.TextColor3         = Color3.fromRGB(60, 60, 60)
+	statusLabel.TextTransparency   = 1
+	statusLabel.Font               = Enum.Font.Code
+	statusLabel.TextSize           = 11
+	statusLabel.ZIndex             = 21
+	statusLabel.Parent             = splash
 
 	local barBg = Instance.new("Frame")
-	barBg.Size = UDim2.new(1, -40, 0, 5)
-	barBg.Position = UDim2.new(0, 20, 0.5, 10)
-	barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	barBg.Size               = UDim2.new(1, -40, 0, 5)
+	barBg.Position           = UDim2.new(0, 20, 0.5, 10)
+	barBg.BackgroundColor3   = Color3.fromRGB(30, 30, 30)
 	barBg.BackgroundTransparency = 1
-	barBg.BorderSizePixel = 0
-	barBg.ZIndex = 21
-	barBg.Parent = splash
+	barBg.BorderSizePixel    = 0
+	barBg.ZIndex             = 21
+	barBg.Parent             = splash
 	do
 		local c = Instance.new("UICorner")
 		c.CornerRadius = UDim.new(1, 0)
@@ -570,13 +864,13 @@ local function loadCommandsWithSplash(onDone)
 	end
 
 	local barFill = Instance.new("Frame")
-	barFill.Size = UDim2.new(0, 0, 1, 0)
-	barFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+	barFill.Size               = UDim2.new(0, 0, 1, 0)
+	barFill.BackgroundColor3   = Color3.fromRGB(80, 160, 255)
 	barFill.BackgroundTransparency = 1
-	barFill.BorderSizePixel = 0
-	barFill.ClipsDescendants = true
-	barFill.ZIndex = 22
-	barFill.Parent = barBg
+	barFill.BorderSizePixel    = 0
+	barFill.ClipsDescendants   = true
+	barFill.ZIndex             = 22
+	barFill.Parent             = barBg
 	do
 		local c = Instance.new("UICorner")
 		c.CornerRadius = UDim.new(1, 0)
@@ -584,13 +878,13 @@ local function loadCommandsWithSplash(onDone)
 	end
 
 	local shimmer = Instance.new("Frame")
-	shimmer.Size = UDim2.new(0, 50, 1, 0)
-	shimmer.Position = UDim2.new(0, -50, 0, 0)
-	shimmer.BackgroundColor3 = Color3.fromRGB(160, 210, 255)
+	shimmer.Size               = UDim2.new(0, 50, 1, 0)
+	shimmer.Position           = UDim2.new(0, -50, 0, 0)
+	shimmer.BackgroundColor3   = Color3.fromRGB(160, 210, 255)
 	shimmer.BackgroundTransparency = 0.55
-	shimmer.BorderSizePixel = 0
-	shimmer.ZIndex = 23
-	shimmer.Parent = barFill
+	shimmer.BorderSizePixel    = 0
+	shimmer.ZIndex             = 23
+	shimmer.Parent             = barFill
 	do
 		local c = Instance.new("UICorner")
 		c.CornerRadius = UDim.new(1, 0)
@@ -622,10 +916,7 @@ local function loadCommandsWithSplash(onDone)
 	end)
 
 	local appearInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-	TweenService:Create(splash, appearInfo, {
-		Size = UDim2.new(0, SW, 0, SH),
-		BackgroundTransparency = 0,
-	}):Play()
+	TweenService:Create(splash,      appearInfo, { Size = UDim2.new(0, SW, 0, SH), BackgroundTransparency = 0 }):Play()
 	task.wait(0.05)
 	TweenService:Create(wordLabel,   appearInfo, { TextTransparency = 0 }):Play()
 	TweenService:Create(statusLabel, appearInfo, { TextTransparency = 0 }):Play()
@@ -638,7 +929,7 @@ local function loadCommandsWithSplash(onDone)
 
 	local manifestSrc = fetch(BASE_URL .. "manifest.lua")
 	if not manifestSrc then
-		statusLabel.Text = "error: failed to fetch manifest"
+		statusLabel.Text      = "error: failed to fetch manifest"
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
 		shimmerRunning = false
 		task.wait(2)
@@ -648,7 +939,7 @@ local function loadCommandsWithSplash(onDone)
 
 	local manifestFn, parseErr = loadstring(manifestSrc)
 	if not manifestFn then
-		statusLabel.Text = "error: " .. tostring(parseErr)
+		statusLabel.Text      = "error: " .. tostring(parseErr)
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
 		shimmerRunning = false
 		task.wait(2)
@@ -658,7 +949,7 @@ local function loadCommandsWithSplash(onDone)
 
 	local ok, manifest = pcall(manifestFn)
 	if not ok or type(manifest) ~= "table" then
-		statusLabel.Text = "error: invalid manifest"
+		statusLabel.Text      = "error: invalid manifest"
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
 		shimmerRunning = false
 		task.wait(2)
@@ -687,69 +978,15 @@ local function loadCommandsWithSplash(onDone)
 	task.wait(0.6)
 
 	local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-	TweenService:Create(splash,       fadeInfo, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(wordLabel,    fadeInfo, { TextTransparency = 1 }):Play()
-	TweenService:Create(statusLabel,  fadeInfo, { TextTransparency = 1 }):Play()
-	TweenService:Create(barBg,        fadeInfo, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(barFill,      fadeInfo, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(splash,      fadeInfo, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(wordLabel,   fadeInfo, { TextTransparency = 1 }):Play()
+	TweenService:Create(statusLabel, fadeInfo, { TextTransparency = 1 }):Play()
+	TweenService:Create(barBg,       fadeInfo, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(barFill,     fadeInfo, { BackgroundTransparency = 1 }):Play()
 	task.wait(0.35)
 	splash:Destroy()
 
 	if onDone then onDone() end
-end
-
-inputBox.FocusLost:Connect(function(enterPressed)
-	if enterPressed then
-		processCommand(inputBox.Text)
-		inputBox.Text = ""
-		task.wait(0.05)
-		inputBox:CaptureFocus()
-	end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
-	if not inputBox:IsFocused() then return end
-	if input.KeyCode == Enum.KeyCode.Up then
-		if State.historyIndex > 1 then
-			State.historyIndex = State.historyIndex - 1
-			inputBox.Text = State.commandHistory[State.historyIndex]
-			inputBox.CursorPosition = #inputBox.Text + 1
-		end
-	elseif input.KeyCode == Enum.KeyCode.Down then
-		if State.historyIndex < #State.commandHistory then
-			State.historyIndex = State.historyIndex + 1
-			inputBox.Text = State.commandHistory[State.historyIndex]
-			inputBox.CursorPosition = #inputBox.Text + 1
-		elseif State.historyIndex == #State.commandHistory then
-			State.historyIndex = State.historyIndex + 1
-			inputBox.Text = ""
-		end
-	end
-end)
-
-minimizeBtn.MouseButton1Click:Connect(function()
-	if State.isMinimized then restoreTerminal() else minimizeTerminal() end
-end)
-
-maximizeBtn.MouseButton1Click:Connect(function()
-	if mainFrame.Size.Y.Offset == CONFIG.WindowSize.Y then
-		tween(mainFrame, { Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0) })
-		tween(mainFrame, { Size = UDim2.new(1, -20, 1, -20) })
-	else
-		tween(mainFrame, {
-			Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y),
-			Position = UDim2.new(0.5, -(CONFIG.WindowSize.X) / 2, 0.5, -(CONFIG.WindowSize.Y) / 2),
-		})
-		tween(mainFrame, { Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y) })
-	end
-end)
-
-closeBtn.MouseButton1Click:Connect(closeTerminal)
-toggleBtn.MouseButton1Click:Connect(openTerminal)
-
-if UserInputService.TouchEnabled then
-	toggleBtn.Size = UDim2.new(0, 60, 0, 60)
 end
 
 print("[TERMINAL] Ready!")
