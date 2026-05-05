@@ -10,7 +10,7 @@ return {
 	"mkdir",
 	"mv",
 	"rm",
-	"loadcmd",
+	"pacman",
 	"refcom",
 	"playerlist",
 }
