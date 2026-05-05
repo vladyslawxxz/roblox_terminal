@@ -96,7 +96,7 @@ end
 
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 36)
+titleBar.Size = UDim2.new(1, 0, 0, 42)
 titleBar.BackgroundColor3 = CONFIG.TitleBarColor
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
@@ -130,38 +130,46 @@ titleText.TextSize = 12
 titleText.TextXAlignment = Enum.TextXAlignment.Center
 titleText.Parent = titleBar
 
-local function makeWinBtn(color, posX)
+local function makeWinBtn(posX, icon)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 11, 0, 11)
-	btn.Position = UDim2.new(0, posX, 0.5, -5)
-	btn.BackgroundColor3 = color
+	btn.Size = UDim2.new(0, 28, 0, 28)
+	btn.Position = UDim2.new(0, posX, 0.5, -14)
+	btn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
 	btn.Text = ""
 	btn.AutoButtonColor = false
 	btn.Parent = titleBar
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(1, 0)
+	c.CornerRadius = UDim.new(0, 6)
 	c.Parent = btn
-	return btn
+	local lbl = Instance.new("TextLabel")
+	lbl.Size = UDim2.new(1, 0, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = icon
+	lbl.TextColor3 = Color3.fromRGB(90, 90, 90)
+	lbl.Font = Enum.Font.Code
+	lbl.TextSize = 16
+	lbl.Parent = btn
+	btn.MouseEnter:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+		lbl.TextColor3 = Color3.fromRGB(180, 180, 180)
+	end)
+	btn.MouseLeave:Connect(function()
+		btn.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+		lbl.TextColor3 = Color3.fromRGB(90, 90, 90)
+	end)
+	return btn, lbl
 end
 
-local minimizeBtn = makeWinBtn(Color3.fromRGB(46, 46, 46), 14)
-local maximizeBtn = makeWinBtn(Color3.fromRGB(46, 46, 46), 33)
-local closeBtn    = makeWinBtn(Color3.fromRGB(46, 46, 46), 52)
+local minimizeBtn = makeWinBtn(10, "-")
+local maximizeBtn = makeWinBtn(44, "[]")
+local closeBtn    = makeWinBtn(78, "x")
 
 local minIcon = nil
 
-local function setDotHover(btn, hoverColor)
-	btn.MouseEnter:Connect(function() btn.BackgroundColor3 = hoverColor end)
-	btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(46, 46, 46) end)
-end
-setDotHover(closeBtn,    Color3.fromRGB(100, 60, 60))
-setDotHover(minimizeBtn, Color3.fromRGB(80, 70, 40))
-setDotHover(maximizeBtn, Color3.fromRGB(40, 70, 50))
-
 local outputFrame = Instance.new("ScrollingFrame")
 outputFrame.Name = "Output"
-outputFrame.Size = UDim2.new(1, -32, 1, -82)
-outputFrame.Position = UDim2.new(0, 16, 0, 44)
+outputFrame.Size = UDim2.new(1, -32, 1, -88)
+outputFrame.Position = UDim2.new(0, 16, 0, 50)
 outputFrame.BackgroundTransparency = 1
 outputFrame.BorderSizePixel = 0
 outputFrame.ScrollBarThickness = 3
