@@ -506,42 +506,62 @@ local function processCommand(input)
 end
 
 local function loadCommandsWithSplash(onDone)
+	local SW = CONFIG.WindowSize.X / 2
+	local SH = CONFIG.WindowSize.Y / 2
+
 	local splash = Instance.new("Frame")
-	splash.Size = UDim2.new(1, 0, 1, 0)
-	splash.Position = UDim2.new(0, 0, 0, 0)
-	splash.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+	splash.Name = "SplashScreen"
+	splash.Size = UDim2.new(0, 0, 0, 0)
+	splash.Position = UDim2.new(0.5, 0, 0.5, 0)
+	splash.AnchorPoint = Vector2.new(0.5, 0.5)
+	splash.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
 	splash.BorderSizePixel = 0
-	splash.ZIndex = 10
-	splash.Parent = mainFrame
+	splash.BackgroundTransparency = 1
+	splash.ZIndex = 20
+	splash.Parent = screenGui
+	do
+		local c = Instance.new("UICorner")
+		c.CornerRadius = UDim.new(0, 10)
+		c.Parent = splash
+		local s = Instance.new("UIStroke")
+		s.Color = Color3.fromRGB(42, 42, 42)
+		s.Thickness = 1
+		s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+		s.ZIndex = 21
+		s.Parent = splash
+	end
 
 	local wordLabel = Instance.new("TextLabel")
-	wordLabel.Size = UDim2.new(1, 0, 0, 24)
-	wordLabel.Position = UDim2.new(0, 0, 0.5, -52)
+	wordLabel.Size = UDim2.new(1, -40, 0, 22)
+	wordLabel.Position = UDim2.new(0, 20, 0.5, -42)
 	wordLabel.BackgroundTransparency = 1
 	wordLabel.Text = "Linux Terminal"
 	wordLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+	wordLabel.TextTransparency = 1
 	wordLabel.Font = Enum.Font.Code
-	wordLabel.TextSize = 18
-	wordLabel.ZIndex = 11
+	wordLabel.TextSize = 16
+	wordLabel.ZIndex = 21
 	wordLabel.Parent = splash
 
 	local statusLabel = Instance.new("TextLabel")
-	statusLabel.Size = UDim2.new(1, 0, 0, 16)
-	statusLabel.Position = UDim2.new(0, 0, 0.5, -20)
+	statusLabel.Size = UDim2.new(1, -40, 0, 14)
+	statusLabel.Position = UDim2.new(0, 20, 0.5, -14)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Text = "initializing..."
 	statusLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
+	statusLabel.TextTransparency = 1
 	statusLabel.Font = Enum.Font.Code
-	statusLabel.TextSize = 12
-	statusLabel.ZIndex = 11
+	statusLabel.TextSize = 11
+	statusLabel.ZIndex = 21
 	statusLabel.Parent = splash
 
 	local barBg = Instance.new("Frame")
-	barBg.Size = UDim2.new(0, 260, 0, 6)
-	barBg.Position = UDim2.new(0.5, -130, 0.5, 8)
+	barBg.Size = UDim2.new(1, -40, 0, 5)
+	barBg.Position = UDim2.new(0, 20, 0.5, 10)
 	barBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	barBg.BackgroundTransparency = 1
 	barBg.BorderSizePixel = 0
-	barBg.ZIndex = 11
+	barBg.ZIndex = 21
 	barBg.Parent = splash
 	do
 		local c = Instance.new("UICorner")
@@ -551,11 +571,11 @@ local function loadCommandsWithSplash(onDone)
 
 	local barFill = Instance.new("Frame")
 	barFill.Size = UDim2.new(0, 0, 1, 0)
-	barFill.Position = UDim2.new(0, 0, 0, 0)
 	barFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+	barFill.BackgroundTransparency = 1
 	barFill.BorderSizePixel = 0
-	barFill.ZIndex = 12
 	barFill.ClipsDescendants = true
+	barFill.ZIndex = 22
 	barFill.Parent = barBg
 	do
 		local c = Instance.new("UICorner")
@@ -564,12 +584,12 @@ local function loadCommandsWithSplash(onDone)
 	end
 
 	local shimmer = Instance.new("Frame")
-	shimmer.Size = UDim2.new(0, 60, 1, 0)
-	shimmer.Position = UDim2.new(0, -60, 0, 0)
-	shimmer.BackgroundColor3 = Color3.fromRGB(180, 220, 255)
-	shimmer.BackgroundTransparency = 0.5
+	shimmer.Size = UDim2.new(0, 50, 1, 0)
+	shimmer.Position = UDim2.new(0, -50, 0, 0)
+	shimmer.BackgroundColor3 = Color3.fromRGB(160, 210, 255)
+	shimmer.BackgroundTransparency = 0.55
 	shimmer.BorderSizePixel = 0
-	shimmer.ZIndex = 13
+	shimmer.ZIndex = 23
 	shimmer.Parent = barFill
 	do
 		local c = Instance.new("UICorner")
@@ -579,34 +599,39 @@ local function loadCommandsWithSplash(onDone)
 
 	local function setProgress(t, label)
 		statusLabel.Text = label
-		local info = TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-		TweenService:Create(barFill, info, {
-			Size = UDim2.new(t, 0, 1, 0)
-		}):Play()
-		TweenService:Create(shimmer, info, {
-			Position = UDim2.new(t, -30, 0, 0)
-		}):Play()
+		local info = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		TweenService:Create(barFill, info, { Size = UDim2.new(t, 0, 1, 0) }):Play()
 	end
 
-	local function animateShimmer()
-		task.spawn(function()
-			while shimmer and shimmer.Parent do
-				local w = barFill.Size.X.Scale
-				if w > 0.05 then
-					shimmer.Position = UDim2.new(0, -60, 0, 0)
-					local info = TweenInfo.new(w * 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-					TweenService:Create(shimmer, info, {
-						Position = UDim2.new(1, 0, 0, 0)
-					}):Play()
-					task.wait(w * 0.8 + 0.3)
-				else
-					task.wait(0.1)
-				end
+	local shimmerRunning = true
+	task.spawn(function()
+		while shimmerRunning do
+			local w = barFill.Size.X.Scale
+			if w > 0.05 then
+				shimmer.Position = UDim2.new(0, -50, 0, 0)
+				local dur = math.max(0.4, w * 0.7)
+				TweenService:Create(shimmer,
+					TweenInfo.new(dur, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+					{ Position = UDim2.new(1, 0, 0, 0) }
+				):Play()
+				task.wait(dur + 0.2)
+			else
+				task.wait(0.1)
 			end
-		end)
-	end
+		end
+	end)
 
-	animateShimmer()
+	local appearInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	TweenService:Create(splash, appearInfo, {
+		Size = UDim2.new(0, SW, 0, SH),
+		BackgroundTransparency = 0,
+	}):Play()
+	task.wait(0.05)
+	TweenService:Create(wordLabel,   appearInfo, { TextTransparency = 0 }):Play()
+	TweenService:Create(statusLabel, appearInfo, { TextTransparency = 0 }):Play()
+	TweenService:Create(barBg,       appearInfo, { BackgroundTransparency = 0 }):Play()
+	TweenService:Create(barFill,     appearInfo, { BackgroundTransparency = 0 }):Play()
+	task.wait(0.45)
 
 	setProgress(0.05, "fetching manifest...")
 	task.wait(0.1)
@@ -615,15 +640,17 @@ local function loadCommandsWithSplash(onDone)
 	if not manifestSrc then
 		statusLabel.Text = "error: failed to fetch manifest"
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
+		shimmerRunning = false
 		task.wait(2)
 		splash:Destroy()
 		return
 	end
 
-	local manifestFn, err = loadstring(manifestSrc)
+	local manifestFn, parseErr = loadstring(manifestSrc)
 	if not manifestFn then
-		statusLabel.Text = "error: " .. tostring(err)
+		statusLabel.Text = "error: " .. tostring(parseErr)
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
+		shimmerRunning = false
 		task.wait(2)
 		splash:Destroy()
 		return
@@ -633,6 +660,7 @@ local function loadCommandsWithSplash(onDone)
 	if not ok or type(manifest) ~= "table" then
 		statusLabel.Text = "error: invalid manifest"
 		statusLabel.TextColor3 = Color3.fromRGB(180, 60, 60)
+		shimmerRunning = false
 		task.wait(2)
 		splash:Destroy()
 		return
@@ -642,12 +670,9 @@ local function loadCommandsWithSplash(onDone)
 	local loaded, failed = 0, 0
 
 	for i, name in ipairs(manifest) do
-		local progress = 0.1 + (i / total) * 0.85
-		setProgress(progress, "loading " .. name .. "...")
+		setProgress(0.1 + (i / total) * 0.85, "loading " .. name .. "...")
 		task.wait(0.05)
-
-		local url = BASE_URL .. "commands/" .. name .. ".lua"
-		local cmd = loadModule(url)
+		local cmd = loadModule(BASE_URL .. "commands/" .. name .. ".lua")
 		if cmd and cmd.name and cmd.execute then
 			Commands[cmd.name] = cmd
 			loaded = loaded + 1
@@ -657,16 +682,17 @@ local function loadCommandsWithSplash(onDone)
 		end
 	end
 
-	setProgress(1, string.format("loaded %d command(s)", loaded))
-	task.wait(0.5)
+	setProgress(1, "loaded " .. loaded .. " command(s)")
+	shimmerRunning = false
+	task.wait(0.6)
 
-	local info = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-	TweenService:Create(splash, info, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(wordLabel, info, { TextTransparency = 1 }):Play()
-	TweenService:Create(statusLabel, info, { TextTransparency = 1 }):Play()
-	TweenService:Create(barBg, info, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(barFill, info, { BackgroundTransparency = 1 }):Play()
-	task.wait(0.4)
+	local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+	TweenService:Create(splash,       fadeInfo, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(wordLabel,    fadeInfo, { TextTransparency = 1 }):Play()
+	TweenService:Create(statusLabel,  fadeInfo, { TextTransparency = 1 }):Play()
+	TweenService:Create(barBg,        fadeInfo, { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(barFill,      fadeInfo, { BackgroundTransparency = 1 }):Play()
+	task.wait(0.35)
 	splash:Destroy()
 
 	if onDone then onDone() end
@@ -728,12 +754,35 @@ end
 
 print("[TERMINAL] Ready!")
 
+mainFrame.Visible = false
+
 task.wait(0.3)
 
 loadCommandsWithSplash(function()
 	createOutputLine("Linux Terminal v2.0", Color3.fromRGB(68, 68, 68))
 	createOutputLine("type 'help' for a list of commands.", Color3.fromRGB(68, 68, 68))
 	createOutputLine("")
-	task.wait(0.1)
+	mainFrame.Visible = true
+	mainFrame.BackgroundTransparency = 1
+	for _, child in ipairs(mainFrame:GetDescendants()) do
+		if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+			child.TextTransparency = 1
+		end
+		if child:IsA("Frame") or child:IsA("ScrollingFrame") then
+			child.BackgroundTransparency = 1
+		end
+	end
+	local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	TweenService:Create(mainFrame, tweenInfo, { BackgroundTransparency = 0 }):Play()
+	task.wait(0.05)
+	for _, child in ipairs(mainFrame:GetDescendants()) do
+		if child:IsA("Frame") and child ~= mainFrame then
+			TweenService:Create(child, tweenInfo, { BackgroundTransparency = 0 }):Play()
+		end
+		if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("TextBox") then
+			TweenService:Create(child, tweenInfo, { TextTransparency = 0 }):Play()
+		end
+	end
+	task.wait(0.5)
 	inputBox:CaptureFocus()
 end)
