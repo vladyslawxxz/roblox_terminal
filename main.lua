@@ -15,17 +15,19 @@ print("[TERMINAL] Initializing...")
 
 local CONFIG = {
 	PromptTemplate    = "[{player}@linux]: ",
-	BackgroundColor   = Color3.fromRGB(30, 30, 30),
-	TitleBarColor     = Color3.fromRGB(50, 50, 50),
-	TextColor         = Color3.fromRGB(220, 220, 220),
-	ErrorColor        = Color3.fromRGB(255, 100, 100),
-	SuccessColor      = Color3.fromRGB(100, 255, 100),
-	InfoColor         = Color3.fromRGB(100, 200, 255),
-	AccentColor       = Color3.fromRGB(80, 160, 255),
+	BackgroundColor   = Color3.fromRGB(17, 17, 17),
+	TitleBarColor     = Color3.fromRGB(24, 24, 24),
+	TextColor         = Color3.fromRGB(204, 204, 204),
+	ErrorColor        = Color3.fromRGB(102, 102, 102),
+	SuccessColor      = Color3.fromRGB(170, 170, 170),
+	InfoColor         = Color3.fromRGB(102, 102, 102),
+	AccentColor       = Color3.fromRGB(204, 204, 204),
+	MutedColor        = Color3.fromRGB(68, 68, 68),
+	BorderColor       = Color3.fromRGB(42, 42, 42),
 	Font              = Enum.Font.Code,
-	TextSize          = 14,
-	WindowSize        = Vector2.new(700, 450),
-	AnimationDuration = 0.3,
+	TextSize          = 13,
+	WindowSize        = Vector2.new(700, 460),
+	AnimationDuration = 0.25,
 }
 
 local State = {
@@ -71,7 +73,6 @@ screenGui.ResetOnSpawn = false
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
-
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "TerminalWindow"
 mainFrame.Size = UDim2.new(0, CONFIG.WindowSize.X, 0, CONFIG.WindowSize.Y)
@@ -80,25 +81,29 @@ mainFrame.BackgroundColor3 = CONFIG.BackgroundColor
 mainFrame.BorderSizePixel = 0
 mainFrame.Active = true
 mainFrame.ClipsDescendants = true
-
 mainFrame.Parent = screenGui
 
 do
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
+	c.CornerRadius = UDim.new(0, 10)
 	c.Parent = mainFrame
+	local s = Instance.new("UIStroke")
+	s.Color = CONFIG.BorderColor
+	s.Thickness = 1
+	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	s.Parent = mainFrame
 end
 
 local titleBar = Instance.new("Frame")
 titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 32)
+titleBar.Size = UDim2.new(1, 0, 0, 36)
 titleBar.BackgroundColor3 = CONFIG.TitleBarColor
 titleBar.BorderSizePixel = 0
 titleBar.Parent = mainFrame
 
 do
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 8)
+	c.CornerRadius = UDim.new(0, 10)
 	c.Parent = titleBar
 	local fix = Instance.new("Frame")
 	fix.Size = UDim2.new(1, 0, 0.5, 0)
@@ -106,26 +111,32 @@ do
 	fix.BackgroundColor3 = CONFIG.TitleBarColor
 	fix.BorderSizePixel = 0
 	fix.Parent = titleBar
+	local sep = Instance.new("Frame")
+	sep.Size = UDim2.new(1, 0, 0, 1)
+	sep.Position = UDim2.new(0, 0, 1, -1)
+	sep.BackgroundColor3 = CONFIG.BorderColor
+	sep.BorderSizePixel = 0
+	sep.Parent = titleBar
 end
 
 local titleText = Instance.new("TextLabel")
 titleText.Size = UDim2.new(1, -120, 1, 0)
-titleText.Position = UDim2.new(0, 10, 0, 0)
+titleText.Position = UDim2.new(0, 0, 0, 0)
 titleText.BackgroundTransparency = 1
-titleText.Text = player.Name .. "@linux: /Workspace"
-titleText.TextColor3 = CONFIG.TextColor
-titleText.Font = Enum.Font.GothamBold
-titleText.TextSize = 14
-titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Text = player.Name .. "@linux"
+titleText.TextColor3 = CONFIG.MutedColor
+titleText.Font = Enum.Font.Code
+titleText.TextSize = 12
+titleText.TextXAlignment = Enum.TextXAlignment.Center
 titleText.Parent = titleBar
 
 local function makeWinBtn(color, posX)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 24, 0, 24)
-	btn.Position = UDim2.new(1, posX, 0, 4)
+	btn.Size = UDim2.new(0, 11, 0, 11)
+	btn.Position = UDim2.new(0, posX, 0.5, -5)
 	btn.BackgroundColor3 = color
 	btn.Text = ""
-	btn.AutoButtonColor = true
+	btn.AutoButtonColor = false
 	btn.Parent = titleBar
 	local c = Instance.new("UICorner")
 	c.CornerRadius = UDim.new(1, 0)
@@ -133,62 +144,58 @@ local function makeWinBtn(color, posX)
 	return btn
 end
 
-local minimizeBtn = makeWinBtn(Color3.fromRGB(255, 190, 50), -84)
-local maximizeBtn = makeWinBtn(Color3.fromRGB(50, 200, 80), -56)
-local closeBtn    = makeWinBtn(Color3.fromRGB(255, 80, 80), -28)
+local minimizeBtn = makeWinBtn(Color3.fromRGB(46, 46, 46), 14)
+local maximizeBtn = makeWinBtn(Color3.fromRGB(46, 46, 46), 33)
+local closeBtn    = makeWinBtn(Color3.fromRGB(46, 46, 46), 52)
 
-local function addIcon(parent, text, size)
-	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, 0, 1, 0)
-	lbl.BackgroundTransparency = 1
-	lbl.Text = text
-	lbl.TextColor3 = Color3.new(0.2, 0.2, 0.2)
-	lbl.Font = Enum.Font.GothamBold
-	lbl.TextSize = size or 18
-	lbl.Parent = parent
-	return lbl
+local minIcon = nil
+
+local function setDotHover(btn, hoverColor)
+	btn.MouseEnter:Connect(function() btn.BackgroundColor3 = hoverColor end)
+	btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(46, 46, 46) end)
 end
-
-local minIcon = addIcon(minimizeBtn, "-")
-addIcon(maximizeBtn, "□", 14)
-addIcon(closeBtn, "×")
+setDotHover(closeBtn,    Color3.fromRGB(100, 60, 60))
+setDotHover(minimizeBtn, Color3.fromRGB(80, 70, 40))
+setDotHover(maximizeBtn, Color3.fromRGB(40, 70, 50))
 
 local outputFrame = Instance.new("ScrollingFrame")
 outputFrame.Name = "Output"
-outputFrame.Size = UDim2.new(1, -10, 1, -70)
-outputFrame.Position = UDim2.new(0, 5, 0, 37)
+outputFrame.Size = UDim2.new(1, -32, 1, -82)
+outputFrame.Position = UDim2.new(0, 16, 0, 44)
 outputFrame.BackgroundTransparency = 1
 outputFrame.BorderSizePixel = 0
-outputFrame.ScrollBarThickness = 6
-outputFrame.ScrollBarImageColor3 = CONFIG.AccentColor
+outputFrame.ScrollBarThickness = 3
+outputFrame.ScrollBarImageColor3 = CONFIG.BorderColor
 outputFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 outputFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 outputFrame.Parent = mainFrame
 
 local outputLayout = Instance.new("UIListLayout")
 outputLayout.SortOrder = Enum.SortOrder.LayoutOrder
-outputLayout.Padding = UDim.new(0, 2)
+outputLayout.Padding = UDim.new(0, 1)
 outputLayout.Parent = outputFrame
 
+local inputSep = Instance.new("Frame")
+inputSep.Size = UDim2.new(1, 0, 0, 1)
+inputSep.Position = UDim2.new(0, 0, 1, -38)
+inputSep.BackgroundColor3 = CONFIG.BorderColor
+inputSep.BorderSizePixel = 0
+inputSep.Parent = mainFrame
+
 local inputFrame = Instance.new("Frame")
-inputFrame.Size = UDim2.new(1, -10, 0, 28)
-inputFrame.Position = UDim2.new(0, 5, 1, -33)
-inputFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+inputFrame.Size = UDim2.new(1, 0, 0, 37)
+inputFrame.Position = UDim2.new(0, 0, 1, -37)
+inputFrame.BackgroundColor3 = CONFIG.TitleBarColor
 inputFrame.BorderSizePixel = 0
 inputFrame.Parent = mainFrame
 
-do
-	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, 4)
-	c.Parent = inputFrame
-end
-
 local promptLabel = Instance.new("TextLabel")
 promptLabel.Size = UDim2.new(0, 0, 1, 0)
+promptLabel.Position = UDim2.new(0, 16, 0, 0)
 promptLabel.AutomaticSize = Enum.AutomaticSize.X
 promptLabel.BackgroundTransparency = 1
 promptLabel.Text = CONFIG.PromptTemplate:gsub("{player}", player.Name)
-promptLabel.TextColor3 = CONFIG.AccentColor
+promptLabel.TextColor3 = CONFIG.MutedColor
 promptLabel.Font = CONFIG.Font
 promptLabel.TextSize = CONFIG.TextSize
 promptLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -199,7 +206,8 @@ inputBox.Size = UDim2.new(1, -120, 1, 0)
 inputBox.Position = UDim2.new(0, 115, 0, 0)
 inputBox.BackgroundTransparency = 1
 inputBox.Text = ""
-inputBox.PlaceholderText = "Enter command..."
+inputBox.PlaceholderText = "type a command..."
+inputBox.PlaceholderColor3 = CONFIG.MutedColor
 inputBox.TextColor3 = CONFIG.TextColor
 inputBox.Font = CONFIG.Font
 inputBox.TextSize = CONFIG.TextSize
@@ -209,19 +217,19 @@ inputBox.Parent = inputFrame
 
 promptLabel:GetPropertyChangedSignal("TextBounds"):Connect(function()
 	local w = promptLabel.TextBounds.X
-	inputBox.Position = UDim2.new(0, w + 10, 0, 0)
-	inputBox.Size = UDim2.new(1, -w - 15, 1, 0)
+	inputBox.Position = UDim2.new(0, 16 + w + 6, 0, 0)
+	inputBox.Size = UDim2.new(1, -(16 + w + 22), 1, 0)
 end)
 promptLabel.Text = promptLabel.Text
 
 local toggleBtn = Instance.new("TextButton")
-toggleBtn.Size = UDim2.new(0, 50, 0, 50)
-toggleBtn.Position = UDim2.new(0, 20, 0, 20)
+toggleBtn.Size = UDim2.new(0, 44, 0, 44)
+toggleBtn.Position = UDim2.new(0, 16, 0, 16)
 toggleBtn.BackgroundColor3 = CONFIG.TitleBarColor
 toggleBtn.Text = ">_"
-toggleBtn.TextColor3 = CONFIG.TextColor
+toggleBtn.TextColor3 = CONFIG.MutedColor
 toggleBtn.Font = Enum.Font.Code
-toggleBtn.TextSize = 24
+toggleBtn.TextSize = 20
 toggleBtn.Visible = false
 toggleBtn.Parent = screenGui
 
@@ -230,8 +238,8 @@ do
 	c.CornerRadius = UDim.new(1, 0)
 	c.Parent = toggleBtn
 	local s = Instance.new("UIStroke")
-	s.Color = CONFIG.AccentColor
-	s.Thickness = 2
+	s.Color = CONFIG.BorderColor
+	s.Thickness = 1
 	s.Parent = toggleBtn
 end
 
@@ -324,7 +332,6 @@ local function minimizeTerminal()
 	})
 	outputFrame.Visible = false
 	inputFrame.Visible = false
-	minIcon.Text = "+"
 end
 
 local function restoreTerminal()
@@ -341,7 +348,6 @@ local function restoreTerminal()
 		outputFrame.Visible = true
 		inputFrame.Visible = true
 	end)
-	minIcon.Text = "-"
 end
 
 local function closeTerminal()
@@ -577,12 +583,11 @@ end
 print("[TERMINAL] Ready!")
 
 task.wait(0.3)
-printInfo("=== Linux Terminal v2.0 ===")
-createOutputLine("Welcome, " .. player.Name .. "!")
-createOutputLine("")
+createOutputLine("Linux Terminal v2.0", Color3.fromRGB(68, 68, 68))
+createOutputLine("", Color3.fromRGB(68, 68, 68))
 loadCommands()
 createOutputLine("")
-createOutputLine("Type 'help' for a list of commands.")
+createOutputLine("type 'help' for a list of commands.", Color3.fromRGB(68, 68, 68))
 createOutputLine("")
 
 task.spawn(function()
