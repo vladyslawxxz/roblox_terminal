@@ -257,7 +257,9 @@ local function createOutputLine(text, color)
 	return line
 end
 
-local function printError(text)   createOutputLine("[ERROR] " .. text, CONFIG.ErrorColor) end
+local function printError(text)          createOutputLine("[ERROR] " .. text, CONFIG.ErrorColor) end
+local function printColored(text, color) createOutputLine(text, color)                           end
+local function createColor(r, g, b)      return Color3.fromRGB(r, g, b)                          end
 local function printSuccess(text) createOutputLine(text, CONFIG.SuccessColor)              end
 local function printInfo(text)    createOutputLine(text, CONFIG.InfoColor)                 end
 local function printLine(text)    createOutputLine(text)                                   end
@@ -420,6 +422,8 @@ local ctx = {
 		updatePrompt()
 	end,
 	previousDir   = function() return State.previousDir end,
+	printColored  = printColored,
+	createColor   = createColor,
 	commands      = Commands,
 }
 
