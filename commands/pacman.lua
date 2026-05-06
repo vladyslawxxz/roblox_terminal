@@ -237,6 +237,15 @@ return {
 	version     = {1, 0, 0},
 	aliases     = { "pkg" },
 
+	init = function(ctx)
+		if initialized then return end
+		local fs = ctx.fs and ctx.fs()
+		initialized = true
+		if fs then
+			loadFromDisk(fs, ctx)
+		end
+	end,
+
 	execute = function(args, ctx)
 		local fs = ctx.fs and ctx.fs()
 
