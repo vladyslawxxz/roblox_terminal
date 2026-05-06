@@ -1,33 +1,102 @@
 # Roblox Terminal
 
-A Linux-style terminal emulator for Roblox that allows you to interact with the game's object hierarchy through command-line interface.
+Roblox Terminal is a Linux-style command terminal for Roblox.
+It gives you a command-line interface to inspect and manage the game object tree, plus a package manager for custom commands.
 
-## Features
+## What This Project Does
 
-- **Interactive terminal GUI** - Dark-themed terminal window with a command input box and scrollable output
-- **Command-based navigation** - Navigate through the Roblox workspace hierarchy using commands like `cd`, `pwd`, `ls`
-- **Window controls** - Minimize, maximize, and close the terminal window
-- **Command history** - Navigate through previous commands using arrow keys
-- **Extensible architecture** - Easy to add new custom commands
+- Renders an interactive terminal GUI in `PlayerGui`
+- Supports command execution with argument parsing and quoted strings
+- Resolves relative and absolute object paths (`.`, `..`, `/...`)
+- Maintains command history and command autocomplete
+- Loads built-in commands from `manifest.lua`
+- Detects executor filesystem support for persistence features
+- Supports command packages through `pacman`
 
-## Usage
+## Built-In Commands
 
-The terminal displays a prompt in the format: `[username@linux]: `
+- `help`
+- `pwd`
+- `cd`
+- `ls`
+- `whoami`
+- `find`
+- `clear`
+- `echo`
+- `mkdir`
+- `mv`
+- `rm`
+- `pacman`
+- `refcom`
+- `playerlist`
 
-Common operations:
-- Type a command and press Enter to execute
-- Use arrow keys to navigate command history
-- Close the terminal window and click the `>_` button to reopen it
+## Quick Usage
 
-## Development
+Prompt format:
 
-Commands are loaded dynamically from the `commands/` directory via `manifest.lua`. Each command module should export:
+```text
+[player@linux]:
+```
 
-```lua
-return {
-    name = "command_name",
-    aliases = {"alias1", "alias2"},
-    execute = function(args, ctx)
-        -- Command implementation
-    end
-}
+Common examples:
+
+```text
+help
+pwd
+cd Workspace
+ls
+find Part Workspace
+mkdir Folder TestFolder Workspace
+mv Workspace/TestFolder --name MyFolder
+rm Workspace/MyFolder
+```
+
+## pacman (Package Manager)
+
+`pacman` installs command modules from GitHub repositories in format `@user/repo`.
+
+Supported actions:
+
+- `pacman -S @user/repo` install package
+- `pacman -R @user/repo` remove package
+- `pacman -Q` list installed packages
+
+Package entrypoint requirements:
+
+- Repository must contain `main.lua` in repo root
+- `main.lua` must return a valid command table (`name`, `execute`, optional `aliases`, etc.)
+
+Install source URL format:
+
+```text
+https://raw.githubusercontent.com/user/repo/refs/heads/main/main.lua
+```
+
+Local package persistence:
+
+- Registry: `Roblox-Terminal/pkg/installed.json`
+- Cached package source: `Roblox-Terminal/pkg/{user}/{repo}/main.lua`
+
+Startup behavior:
+
+- Cached packages are auto-loaded on terminal startup
+- If local package file is missing, remote fetch is used as fallback
+
+## Architecture
+
+- `main.lua`: boot flow, GUI, input handling, command dispatch
+- `manifest.lua`: built-in command list
+- `commands/*.lua`: built-in command modules
+- `detector.lua`: executor detection
+- `executors.lua`: filesystem adapter map
+
+## Developer Docs
+
+Full command API, syntax tables, and packaging details are documented in:
+
+- `For-Developers.md`
+
+## Notes
+
+- Filesystem persistence depends on executor support (`ctx.fs()` adapter availability)
+- If executor is not detected, terminal still works, but persistent package storage is unavailable
