@@ -400,6 +400,7 @@ local function showAc(matches, query)
 end
 
 local Commands = {}
+local Executor = nil
 
 local function getMatches(query)
 	if not query or query == "" then return {} end
@@ -712,6 +713,7 @@ local ctx = {
 	printAnimLine  = printAnimLine,
 	updateAnimLine = updateAnimLine,
 	confirm        = confirmPrompt,
+	fs             = function() return Executor end,
 }
 
 local function splitArgs(str)
@@ -983,6 +985,23 @@ local function loadCommandsWithSplash(onDone)
 	TweenService:Create(barBg,       appearInfo, { BackgroundTransparency = 0 }):Play()
 	TweenService:Create(barFill,     appearInfo, { BackgroundTransparency = 0 }):Play()
 	task.wait(0.45)
+
+	setProgress(0.03, "detecting executor...")
+	task.wait(0.1)
+	local detectorSrc = fetch(BASE_URL .. "detector.lua")
+	if detectorSrc then
+		local detectorFn = loadstring(detectorSrc)
+		if detectorFn then
+			local ok, result = pcall(detectorFn)
+			if ok and result then
+				Executor = result
+				print("[TERMINAL] Executor detected: " .. result.name)
+			end
+		end
+	end
+	if not Executor then
+		print("[TERMINAL] Executor not detected, filesystem disabled")
+	end
 
 	setProgress(0.05, "fetching manifest...")
 	task.wait(0.1)
