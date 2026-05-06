@@ -1052,6 +1052,18 @@ local function loadCommandsWithSplash(onDone)
 		end
 	end
 
+	setProgress(0.97, "initializing commands...")
+	for _, cmd in pairs(Commands) do
+		if type(cmd.init) == "function" then
+			local initOk, initErr = pcall(function()
+				cmd.init(ctx)
+			end)
+			if not initOk then
+				print("[TERMINAL] init failed for command '" .. tostring(cmd.name) .. "': " .. tostring(initErr))
+			end
+		end
+	end
+
 	setProgress(1, "loaded " .. loaded .. " command(s)")
 	shimmerRunning = false
 	task.wait(0.6)
