@@ -147,6 +147,18 @@ return {
 				version = cmd.version or {0, 0, 0},
 			}
 
+			local fs = ctx.fs and ctx.fs()
+			if fs then
+				local dir = "Roblox-Terminal/pkg/" .. pkg.user .. "/" .. pkg.repo
+				pcall(function()
+					fs.makefolder("Roblox-Terminal")
+					fs.makefolder("Roblox-Terminal/pkg")
+					fs.makefolder("Roblox-Terminal/pkg/" .. pkg.user)
+					fs.makefolder(dir)
+					fs.writefile(dir .. "/main.lua", src)
+				end)
+			end
+
 			ctx.printLine("")
 			ctx.printSuccess("(1/1) installing " .. cmd.name .. " v" .. ver .. "  [done]")
 
