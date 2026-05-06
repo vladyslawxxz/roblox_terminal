@@ -499,6 +499,62 @@ local function clearConsole()
 	State.outputLines = {}
 end
 
+local function printAnimLine(text, color)
+	color = color or CONFIG.TextColor
+	local line = Instance.new("TextLabel")
+	line.Size = UDim2.new(1, -10, 0, 0)
+	line.AutomaticSize = Enum.AutomaticSize.Y
+	line.BackgroundTransparency = 1
+	line.Text = text
+	line.TextColor3 = color
+	line.Font = CONFIG.Font
+	line.TextSize = CONFIG.TextSize
+	line.TextXAlignment = Enum.TextXAlignment.Left
+	line.TextYAlignment = Enum.TextYAlignment.Top
+	line.TextWrapped = false
+	line.Parent = outputFrame
+	table.insert(State.outputLines, line)
+	RunService.Heartbeat:Wait()
+	outputFrame.CanvasPosition = Vector2.new(0, outputFrame.AbsoluteCanvasSize.Y)
+	return line
+end
+
+local function updateAnimLine(lineObj, text, color)
+	if not lineObj or not lineObj.Parent then return end
+	lineObj.Text = text
+	if color then lineObj.TextColor3 = color end
+	RunService.Heartbeat:Wait()
+	outputFrame.CanvasPosition = Vector2.new(0, outputFrame.AbsoluteCanvasSize.Y)
+end
+
+local function confirmPrompt(question)
+	local questionLine = printAnimLine(question, CONFIG.InfoColor)
+	local answered     = false
+	local result       = true
+
+	local conn
+	conn = inputBox.FocusLost:Connect(function(enterPressed)
+		if not enterPressed then return end
+		local answer = inputBox.Text:lower()
+		inputBox.Text = ""
+		conn:Disconnect()
+		if answer == "n" or answer == "no" then
+			result = false
+		end
+
+		questionLine.Text = question .. (result and "Y" or "n")
+		answered = true
+	end)
+
+	inputBox:CaptureFocus()
+
+	while not answered do
+		task.wait(0.05)
+	end
+
+	return result
+end
+
 local function getPathString(obj)
 	if obj == game then return "/" end
 	local path = obj.Name
@@ -649,9 +705,13 @@ local ctx = {
 		updatePrompt()
 	end,
 	previousDir  = function() return State.previousDir end,
-	printColored = printColored,
-	createColor  = createColor,
-	commands     = Commands,
+	printColored   = printColored,
+	createColor    = createColor,
+	commands       = Commands,
+
+	printAnimLine  = printAnimLine,
+	updateAnimLine = updateAnimLine,
+	confirm        = confirmPrompt,
 }
 
 local function splitArgs(str)
