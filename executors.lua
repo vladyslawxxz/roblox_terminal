@@ -7,6 +7,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	krnl = {
 		name       = "KRNL",
@@ -16,6 +18,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	fluxus = {
 		name       = "Fluxus",
@@ -25,6 +29,8 @@ return {
 		isfile     = function(path) return fluxus.isfile(path) end,
 		isfolder   = function(path) return fluxus.isfolder(path) end,
 		appendfile = function(path, data) fluxus.appendfile(path, data) end,
+		delfile    = function(path) fluxus.delfile(path) end,
+		delfolder  = function(path) fluxus.delfolder(path) end,
 	},
 	delta = {
 		name       = "Delta",
@@ -34,6 +40,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	xeno = {
 		name       = "Xeno",
@@ -43,6 +51,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	arceus = {
 		name       = "Arceus X",
@@ -52,6 +62,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	solara = {
 		name       = "Solara",
@@ -61,6 +73,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	wave = {
 		name       = "Wave",
@@ -70,6 +84,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	sirhurt = {
 		name       = "SirHurt",
@@ -79,6 +95,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	scriptware = {
 		name       = "Script-Ware",
@@ -88,6 +106,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	oxygenu = {
 		name       = "Oxygen U",
@@ -97,6 +117,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	hydrogen = {
 		name       = "Hydrogen",
@@ -106,6 +128,8 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 	generic = {
 		name       = "Unknown",
@@ -115,5 +139,7 @@ return {
 		isfile     = function(path) return isfile(path) end,
 		isfolder   = function(path) return isfolder(path) end,
 		appendfile = function(path, data) appendfile(path, data) end,
+		delfile    = function(path) delfile(path) end,
+		delfolder  = function(path) delfolder(path) end,
 	},
 }
