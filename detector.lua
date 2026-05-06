@@ -1,3 +1,4 @@
+local BASE_URL = "https://raw.githubusercontent.com/vladyslawxxz/roblox_terminal/refs/heads/main/"
 local executors = loadstring(game:HttpGet(BASE_URL .. "executors.lua"))()
 
 local function detect()
