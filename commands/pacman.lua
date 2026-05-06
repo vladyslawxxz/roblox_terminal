@@ -31,6 +31,13 @@ local function packageMainPath(user, repo)
 	return packageDir(user, repo) .. "/main.lua"
 end
 
+local function normalizePath(path, sep)
+	if sep == "\\" then
+		return path:gsub("/", "\\")
+	end
+	return path:gsub("\\", "/")
+end
+
 local function ensureFolderTree(fs, path)
 	local built = ""
 	for part in path:gmatch("[^/]+") do
@@ -39,6 +46,87 @@ local function ensureFolderTree(fs, path)
 			fs.makefolder(built)
 		end)
 	end
+end
+
+local function ensureFolderTreeBoth(fs, path)
+	local slashPath = normalizePath(path, "/")
+	local backPath = normalizePath(path, "\\")
+	ensureFolderTree(fs, slashPath)
+	if backPath ~= slashPath then
+		local built = ""
+		for part in backPath:gmatch("[^\\]+") do
+			built = (built == "") and part or (built .. "\\" .. part)
+			pcall(function()
+				fs.makefolder(built)
+			end)
+		end
+	end
+end
+
+local function tryReadFile(fs, path)
+	local candidates = { normalizePath(path, "/"), normalizePath(path, "\\") }
+	for _, p in ipairs(candidates) do
+		if fs.isfile(p) then
+			local ok, content = pcall(function() return fs.readfile(p) end)
+			if ok and content and content ~= "" then
+				return content
+			end
+		end
+	end
+	return nil
+end
+
+local function writePackageFile(fs, user, repo, content)
+	local dir = packageDir(user, repo)
+	local slashDir = normalizePath(dir, "/")
+	local backDir = normalizePath(dir, "\\")
+	local slashFile = normalizePath(packageMainPath(user, repo), "/")
+	local backFile = normalizePath(packageMainPath(user, repo), "\\")
+
+	local ok = false
+	local lastErr = nil
+
+	local function attempt(filePath, folderPath)
+		local writeOk, writeErr = pcall(function()
+			ensureFolderTreeBoth(fs, folderPath)
+			fs.writefile(filePath, content)
+		end)
+		if writeOk and fs.isfile(filePath) then
+			ok = true
+			return
+		end
+		lastErr = writeErr
+	end
+
+	attempt(slashFile, slashDir)
+	if not ok then
+		attempt(backFile, backDir)
+	end
+
+	if ok then
+		return true
+	end
+	return false, lastErr
+end
+
+local function writeTextFile(fs, path, content)
+	local slashPath = normalizePath(path, "/")
+	local backPath = normalizePath(path, "\\")
+	local parent = path:match("^(.*)[/\\][^/\\]+$") or ""
+
+	local function attempt(targetPath)
+		local ok = pcall(function()
+			if parent ~= "" then
+				ensureFolderTreeBoth(fs, parent)
+			end
+			fs.writefile(targetPath, content)
+		end)
+		return ok and fs.isfile(targetPath)
+	end
+
+	if attempt(slashPath) then return true end
+	if attempt(backPath) then return true end
+	return false
 end
 
 local function saveRegistry(fs)
@@ -59,22 +147,18 @@ local function saveRegistry(fs)
 	end)
 	if not ok then return end
 
-	pcall(function()
-		ensureFolderTree(fs, PACKAGE_ROOT)
-		fs.writefile(REGISTRY_PATH, encoded)
-	end)
+	writeTextFile(fs, REGISTRY_PATH, encoded)
 end
 
 local function loadFromDisk(fs, ctx)
-	local ok, raw = pcall(function() return fs.readfile(REGISTRY_PATH) end)
-	if (not ok or not raw or raw == "") and fs.isfile(LEGACY_REGISTRY_PATH) then
-		local oldOk, oldRaw = pcall(function() return fs.readfile(LEGACY_REGISTRY_PATH) end)
+	local raw = tryReadFile(fs, REGISTRY_PATH)
+	local ok = raw ~= nil
+	if not ok or not raw or raw == "" then
+		local oldRaw = tryReadFile(fs, LEGACY_REGISTRY_PATH)
+		local oldOk = oldRaw ~= nil
 		if oldOk and oldRaw and oldRaw ~= "" then
 			raw = oldRaw
-			pcall(function()
-				ensureFolderTree(fs, PACKAGE_ROOT)
-				fs.writefile(REGISTRY_PATH, oldRaw)
-			end)
+			writeTextFile(fs, REGISTRY_PATH, oldRaw)
 		end
 	end
 	if not raw or raw == "" then return end
@@ -97,15 +181,7 @@ local function loadFromDisk(fs, ctx)
 
 			if user and repo then
 				local pkgKey = "@" .. user .. "/" .. repo
-				local src = nil
-				local localPath = packageMainPath(user, repo)
-
-				if fs.isfile(localPath) then
-					local readOk, localSrc = pcall(function() return fs.readfile(localPath) end)
-					if readOk and localSrc and localSrc ~= "" then
-						src = localSrc
-					end
-				end
+				local src = tryReadFile(fs, packageMainPath(user, repo))
 
 				if not src then
 					local url = buildUrl(user, repo)
@@ -276,11 +352,10 @@ return {
 			}
 
 			if fs then
-				pcall(function()
-					local dir = packageDir(pkg.user, pkg.repo)
-					ensureFolderTree(fs, dir)
-					fs.writefile(packageMainPath(pkg.user, pkg.repo), src)
-				end)
+				local writeOk, writeErr = writePackageFile(fs, pkg.user, pkg.repo, src)
+				if not writeOk then
+					ctx.printError("failed to save package file: " .. tostring(writeErr))
+				end
 				saveRegistry(fs)
 			end
 
@@ -332,12 +407,21 @@ return {
 
 			if fs then
 				pcall(function()
-					local dir = packageDir(pkg.user, pkg.repo)
-					if fs.isfile(dir .. "/main.lua") then
-						fs.delfile(dir .. "/main.lua")
+					local dirSlash = normalizePath(packageDir(pkg.user, pkg.repo), "/")
+					local dirBack = normalizePath(packageDir(pkg.user, pkg.repo), "\\")
+					local fileSlash = normalizePath(packageMainPath(pkg.user, pkg.repo), "/")
+					local fileBack = normalizePath(packageMainPath(pkg.user, pkg.repo), "\\")
+					if fs.isfile(fileSlash) then
+						fs.delfile(fileSlash)
 					end
-					if fs.isfolder(dir) then
-						fs.delfolder(dir)
+					if fs.isfile(fileBack) then
+						fs.delfile(fileBack)
+					end
+					if fs.isfolder(dirSlash) then
+						fs.delfolder(dirSlash)
+					end
+					if fs.isfolder(dirBack) then
+						fs.delfolder(dirBack)
 					end
 				end)
 				saveRegistry(fs)
