@@ -50,17 +50,7 @@ end
 
 local function ensureFolderTreeBoth(fs, path)
 	local slashPath = normalizePath(path, "/")
-	local backPath = normalizePath(path, "\\")
 	ensureFolderTree(fs, slashPath)
-	if backPath ~= slashPath then
-		local built = ""
-		for part in backPath:gmatch("[^\\]+") do
-			built = (built == "") and part or (built .. "\\" .. part)
-			pcall(function()
-				fs.makefolder(built)
-			end)
-		end
-	end
 end
 
 local function tryReadFile(fs, path)
@@ -79,9 +69,7 @@ end
 local function writePackageFile(fs, user, repo, content)
 	local dir = packageDir(user, repo)
 	local slashDir = normalizePath(dir, "/")
-	local backDir = normalizePath(dir, "\\")
 	local slashFile = normalizePath(packageMainPath(user, repo), "/")
-	local backFile = normalizePath(packageMainPath(user, repo), "\\")
 
 	local ok = false
 	local lastErr = nil
@@ -99,9 +87,6 @@ local function writePackageFile(fs, user, repo, content)
 	end
 
 	attempt(slashFile, slashDir)
-	if not ok then
-		attempt(backFile, backDir)
-	end
 
 	if ok then
 		return true
@@ -111,7 +96,6 @@ end
 
 local function writeTextFile(fs, path, content)
 	local slashPath = normalizePath(path, "/")
-	local backPath = normalizePath(path, "\\")
 	local parent = path:match("^(.*)[/\\][^/\\]+$") or ""
 
 	local function attempt(targetPath)
@@ -125,7 +109,6 @@ local function writeTextFile(fs, path, content)
 	end
 
 	if attempt(slashPath) then return true end
-	if attempt(backPath) then return true end
 	return false
 end
 
@@ -408,20 +391,12 @@ return {
 			if fs then
 				pcall(function()
 					local dirSlash = normalizePath(packageDir(pkg.user, pkg.repo), "/")
-					local dirBack = normalizePath(packageDir(pkg.user, pkg.repo), "\\")
 					local fileSlash = normalizePath(packageMainPath(pkg.user, pkg.repo), "/")
-					local fileBack = normalizePath(packageMainPath(pkg.user, pkg.repo), "\\")
 					if fs.isfile(fileSlash) then
 						fs.delfile(fileSlash)
 					end
-					if fs.isfile(fileBack) then
-						fs.delfile(fileBack)
-					end
 					if fs.isfolder(dirSlash) then
 						fs.delfolder(dirSlash)
-					end
-					if fs.isfolder(dirBack) then
-						fs.delfolder(dirBack)
 					end
 				end)
 				saveRegistry(fs)
