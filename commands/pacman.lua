@@ -1,4 +1,7 @@
 local installedPackages = {}
+local initialized = false
+
+local REGISTRY_PATH = "Roblox-Terminal/installed.json"
 
 local function parseVersion(v)
 	if type(v) ~= "table" then return "0.0.0" end
@@ -17,10 +20,63 @@ local function buildUrl(user, repo)
 	return "https://raw.githubusercontent.com/" .. user .. "/" .. repo .. "/refs/heads/main/main.lua"
 end
 
+local function saveRegistry(fs)
+	local lines = {"{"}
+	local first = true
+	for key, entry in pairs(installedPackages) do
+		local user, repo = key:match("^@([^/]+)/(.+)$")
+		local ver = entry.version or {0, 0, 0}
+		if not first then lines[#lines] = lines[#lines] .. "," end
+		table.insert(lines, string.format(
+			'  "%s": {"name":"%s","user":"%s","repo":"%s","version":[%d,%d,%d]}',
+			key, entry.name, user or "", repo or "",
+			ver[1] or 0, ver[2] or 0, ver[3] or 0
+		))
+		first = false
+	end
+	table.insert(lines, "}")
+	pcall(function()
+		fs.makefolder("Roblox-Terminal")
+		fs.writefile(REGISTRY_PATH, table.concat(lines, "\n"))
+	end)
+end
+
+local function loadFromDisk(fs, ctx)
+	local ok, raw = pcall(function() return fs.readfile(REGISTRY_PATH) end)
+	if not ok or not raw or raw == "" then return end
+
+	for key, name, user, repo, v1, v2, v3 in raw:gmatch(
+		'"(@([^"]+)/([^"]+)":%s*{[^}]-"name"%s*:%s*"([^"]+)"[^}]-"user"%s*:%s*"([^"]*)"[^}]-"repo"%s*:%s*"([^"]*)"[^}]-"version"%s*:%s*%[(%d+),(%d+),(%d+)%])'
+	) do
+		_ = key
+		local pkgKey = "@" .. user .. "/" .. repo
+		local url = buildUrl(user, repo)
+		local srcOk, src = pcall(function() return game:HttpGet(url) end)
+		if srcOk and src and src ~= "" then
+			local fn = loadstring(src)
+			if fn then
+				local runOk, cmd = pcall(fn)
+				if runOk and type(cmd) == "table" and cmd.name and cmd.execute then
+					ctx.commands[cmd.name] = cmd
+					if cmd.aliases then
+						for _, alias in ipairs(cmd.aliases) do
+							ctx.commands[alias] = cmd
+						end
+					end
+					installedPackages[pkgKey] = {
+						name    = cmd.name,
+						version = { tonumber(v1) or 0, tonumber(v2) or 0, tonumber(v3) or 0 },
+					}
+				end
+			end
+		end
+	end
+end
+
 local function createProgressBar(ctx, label)
-	local BAR_W  = 40
-	local line   = ctx.printAnimLine(label .. " [" .. string.rep("-", BAR_W) .. "]")
-	local done   = false
+	local BAR_W = 40
+	local line  = ctx.printAnimLine(label .. " [" .. string.rep("-", BAR_W) .. "]")
+	local done  = false
 
 	local function update(progress)
 		if done then return end
@@ -54,6 +110,15 @@ return {
 	aliases     = { "pkg" },
 
 	execute = function(args, ctx)
+		local fs = ctx.fs and ctx.fs()
+
+		if not initialized then
+			initialized = true
+			if fs then
+				loadFromDisk(fs, ctx)
+			end
+		end
+
 		if #args < 1 then
 			ctx.printError("usage: pacman -S @user/repo | -R @user/repo | -Q")
 			return
@@ -120,18 +185,12 @@ return {
 			ctx.printLine("")
 
 			local dlUpdate, dlFinish = createProgressBar(ctx, "downloading " .. cmd.name)
-			for i = 1, 20 do
-				dlUpdate(i / 20)
-				task.wait(0.04)
-			end
+			for i = 1, 20 do dlUpdate(i / 20) task.wait(0.04) end
 			dlFinish()
 			task.wait(0.1)
 
 			local inUpdate, inFinish = createProgressBar(ctx, "installing  " .. cmd.name)
-			for i = 1, 20 do
-				inUpdate(i / 20)
-				task.wait(0.03)
-			end
+			for i = 1, 20 do inUpdate(i / 20) task.wait(0.03) end
 			inFinish()
 			task.wait(0.15)
 
@@ -147,17 +206,7 @@ return {
 				version = cmd.version or {0, 0, 0},
 			}
 
-			local fs = ctx.fs and ctx.fs()
-			if fs then
-				local dir = "Roblox-Terminal/pkg/" .. pkg.user .. "/" .. pkg.repo
-				pcall(function()
-					fs.makefolder("Roblox-Terminal")
-					fs.makefolder("Roblox-Terminal/pkg")
-					fs.makefolder("Roblox-Terminal/pkg/" .. pkg.user)
-					fs.makefolder(dir)
-					fs.writefile(dir .. "/main.lua", src)
-				end)
-			end
+			if fs then saveRegistry(fs) end
 
 			ctx.printLine("")
 			ctx.printSuccess("(1/1) installing " .. cmd.name .. " v" .. ver .. "  [done]")
@@ -192,10 +241,7 @@ return {
 			ctx.printLine("")
 
 			local rmUpdate, rmFinish = createProgressBar(ctx, "removing    " .. entry.name)
-			for i = 1, 20 do
-				rmUpdate(i / 20)
-				task.wait(0.03)
-			end
+			for i = 1, 20 do rmUpdate(i / 20) task.wait(0.03) end
 			rmFinish()
 			task.wait(0.15)
 
@@ -207,6 +253,19 @@ return {
 				end
 			end
 			installedPackages[pkg.key] = nil
+
+			if fs then
+				pcall(function()
+					local dir = "Roblox-Terminal/pkg/" .. pkg.user .. "/" .. pkg.repo
+					if fs.isfile(dir .. "/main.lua") then
+						fs.delfile(dir .. "/main.lua")
+					end
+					if fs.isfolder(dir) then
+						fs.delfolder(dir)
+					end
+				end)
+				saveRegistry(fs)
+			end
 
 			ctx.printLine("")
 			ctx.printSuccess("(1/1) removing  " .. entry.name .. "  [done]")
