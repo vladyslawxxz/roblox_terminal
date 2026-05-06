@@ -1,7 +1,10 @@
 local installedPackages = {}
 local initialized = false
 
-local REGISTRY_PATH = "Roblox-Terminal/installed.json"
+local HttpService = game:GetService("HttpService")
+local PACKAGE_ROOT = "Roblox-Terminal/pkg"
+local REGISTRY_PATH = PACKAGE_ROOT .. "/installed.json"
+local LEGACY_REGISTRY_PATH = "Roblox-Terminal/installed.json"
 
 local function parseVersion(v)
 	if type(v) ~= "table" then return "0.0.0" end
@@ -20,53 +23,119 @@ local function buildUrl(user, repo)
 	return "https://raw.githubusercontent.com/" .. user .. "/" .. repo .. "/refs/heads/main/main.lua"
 end
 
+local function packageDir(user, repo)
+	return PACKAGE_ROOT .. "/" .. user .. "/" .. repo
+end
+
+local function packageMainPath(user, repo)
+	return packageDir(user, repo) .. "/main.lua"
+end
+
+local function ensureFolderTree(fs, path)
+	local built = ""
+	for part in path:gmatch("[^/]+") do
+		built = (built == "") and part or (built .. "/" .. part)
+		pcall(function()
+			fs.makefolder(built)
+		end)
+	end
+end
+
 local function saveRegistry(fs)
-	local lines = {"{"}
-	local first = true
+	local payload = {}
 	for key, entry in pairs(installedPackages) do
 		local user, repo = key:match("^@([^/]+)/(.+)$")
 		local ver = entry.version or {0, 0, 0}
-		if not first then lines[#lines] = lines[#lines] .. "," end
-		table.insert(lines, string.format(
-			'  "%s": {"name":"%s","user":"%s","repo":"%s","version":[%d,%d,%d]}',
-			key, entry.name, user or "", repo or "",
-			ver[1] or 0, ver[2] or 0, ver[3] or 0
-		))
-		first = false
+		payload[key] = {
+			name = entry.name,
+			user = user or "",
+			repo = repo or "",
+			version = { ver[1] or 0, ver[2] or 0, ver[3] or 0 },
+		}
 	end
-	table.insert(lines, "}")
+
+	local ok, encoded = pcall(function()
+		return HttpService:JSONEncode(payload)
+	end)
+	if not ok then return end
+
 	pcall(function()
-		fs.makefolder("Roblox-Terminal")
-		fs.writefile(REGISTRY_PATH, table.concat(lines, "\n"))
+		ensureFolderTree(fs, PACKAGE_ROOT)
+		fs.writefile(REGISTRY_PATH, encoded)
 	end)
 end
 
 local function loadFromDisk(fs, ctx)
 	local ok, raw = pcall(function() return fs.readfile(REGISTRY_PATH) end)
-	if not ok or not raw or raw == "" then return end
+	if (not ok or not raw or raw == "") and fs.isfile(LEGACY_REGISTRY_PATH) then
+		local oldOk, oldRaw = pcall(function() return fs.readfile(LEGACY_REGISTRY_PATH) end)
+		if oldOk and oldRaw and oldRaw ~= "" then
+			raw = oldRaw
+			pcall(function()
+				ensureFolderTree(fs, PACKAGE_ROOT)
+				fs.writefile(REGISTRY_PATH, oldRaw)
+			end)
+		end
+	end
+	if not raw or raw == "" then return end
 
-	for key, name, user, repo, v1, v2, v3 in raw:gmatch(
-		'"(@([^"]+)/([^"]+)":%s*{[^}]-"name"%s*:%s*"([^"]+)"[^}]-"user"%s*:%s*"([^"]*)"[^}]-"repo"%s*:%s*"([^"]*)"[^}]-"version"%s*:%s*%[(%d+),(%d+),(%d+)%])'
-	) do
-		_ = key
-		local pkgKey = "@" .. user .. "/" .. repo
-		local url = buildUrl(user, repo)
-		local srcOk, src = pcall(function() return game:HttpGet(url) end)
-		if srcOk and src and src ~= "" then
-			local fn = loadstring(src)
-			if fn then
-				local runOk, cmd = pcall(fn)
-				if runOk and type(cmd) == "table" and cmd.name and cmd.execute then
-					ctx.commands[cmd.name] = cmd
-					if cmd.aliases then
-						for _, alias in ipairs(cmd.aliases) do
-							ctx.commands[alias] = cmd
+	local decodedOk, registry = pcall(function()
+		return HttpService:JSONDecode(raw)
+	end)
+	if not decodedOk or type(registry) ~= "table" then return end
+
+	for key, entry in pairs(registry) do
+		if type(key) == "string" and type(entry) == "table" then
+			local user = entry.user
+			local repo = entry.repo
+			local ver = entry.version
+
+			if (not user or user == "" or not repo or repo == "") then
+				local pu, pr = key:match("^@([^/]+)/(.+)$")
+				user, repo = pu, pr
+			end
+
+			if user and repo then
+				local pkgKey = "@" .. user .. "/" .. repo
+				local src = nil
+				local localPath = packageMainPath(user, repo)
+
+				if fs.isfile(localPath) then
+					local readOk, localSrc = pcall(function() return fs.readfile(localPath) end)
+					if readOk and localSrc and localSrc ~= "" then
+						src = localSrc
+					end
+				end
+
+				if not src then
+					local url = buildUrl(user, repo)
+					local srcOk, remoteSrc = pcall(function() return game:HttpGet(url) end)
+					if srcOk and remoteSrc and remoteSrc ~= "" then
+						src = remoteSrc
+					end
+				end
+
+				if src then
+					local fn = loadstring(src)
+					if fn then
+						local runOk, cmd = pcall(fn)
+						if runOk and type(cmd) == "table" and cmd.name and cmd.execute then
+							ctx.commands[cmd.name] = cmd
+							if cmd.aliases then
+								for _, alias in ipairs(cmd.aliases) do
+									ctx.commands[alias] = cmd
+								end
+							end
+							installedPackages[pkgKey] = {
+								name = cmd.name,
+								version = type(ver) == "table" and {
+									tonumber(ver[1]) or 0,
+									tonumber(ver[2]) or 0,
+									tonumber(ver[3]) or 0,
+								} or (cmd.version or {0, 0, 0}),
+							}
 						end
 					end
-					installedPackages[pkgKey] = {
-						name    = cmd.name,
-						version = { tonumber(v1) or 0, tonumber(v2) or 0, tonumber(v3) or 0 },
-					}
 				end
 			end
 		end
@@ -206,7 +275,14 @@ return {
 				version = cmd.version or {0, 0, 0},
 			}
 
-			if fs then saveRegistry(fs) end
+			if fs then
+				pcall(function()
+					local dir = packageDir(pkg.user, pkg.repo)
+					ensureFolderTree(fs, dir)
+					fs.writefile(packageMainPath(pkg.user, pkg.repo), src)
+				end)
+				saveRegistry(fs)
+			end
 
 			ctx.printLine("")
 			ctx.printSuccess("(1/1) installing " .. cmd.name .. " v" .. ver .. "  [done]")
@@ -256,7 +332,7 @@ return {
 
 			if fs then
 				pcall(function()
-					local dir = "Roblox-Terminal/pkg/" .. pkg.user .. "/" .. pkg.repo
+					local dir = packageDir(pkg.user, pkg.repo)
 					if fs.isfile(dir .. "/main.lua") then
 						fs.delfile(dir .. "/main.lua")
 					end
