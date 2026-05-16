@@ -99,8 +99,15 @@ return {
 | P4 | `.` is ignored in traversal |
 | P5 | `..` moves one parent up |
 | P6 | Unknown child name returns `nil, "Path not found: ..."` |
+| P7 | `name:ClassName` syntax selects child by both name and class, case-insensitive |
 
----
+When multiple children share the same name, use `name:ClassName` to target a specific one:
+
+```
+Workspace/obj:Part
+Workspace/obj:Sound
+Workspace/obj:Sound/obj2:Script
+```
 
 ## 5. Runtime Context API (`ctx`)
 
@@ -156,7 +163,8 @@ Filesystem adapter methods expected by commands that persist data:
 | `rm` | `del` | `rm <path>` | Remove object |
 | `pacman` | `pkg` | `pacman -S|-R|-Q ...` | Package manager |
 | `refcom` | `reload` | `refcom` | Reload manifest commands |
-| `playerlist` | `pl` | `playerlist [--sort=age-up|--sort=age-down]` | Show players |
+| `playerlist` | `pl` | `playerlist [--sort=age-up\|--sort=age-down]` | Show players |
+| `setprop` | `sp` | `setprop <path> <property> <value>` | Set a property on any object |
 
 ---
 
@@ -251,102 +259,15 @@ return {
 
 ## 11. Context API Quick Recipes
 
-| Recipe ID | Goal | Snippet |
+| Recipe | Goal | Snippet |
 |---|---|---|
 | R001 | Print success | `ctx.printSuccess("done")` |
 | R002 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R003 | Default to current dir | `local target = ctx.currentDir()` |
-| R004 | Move current dir | `ctx.setCurrentDir(target)` |
-| R005 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R006 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R007 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R008 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R009 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R010 | Print success | `ctx.printSuccess("done")` |
-| R011 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R012 | Default to current dir | `local target = ctx.currentDir()` |
-| R013 | Move current dir | `ctx.setCurrentDir(target)` |
-| R014 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R015 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R016 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R017 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R018 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R019 | Print success | `ctx.printSuccess("done")` |
-| R020 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R021 | Default to current dir | `local target = ctx.currentDir()` |
-| R022 | Move current dir | `ctx.setCurrentDir(target)` |
-| R023 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R024 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R025 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R026 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R027 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R028 | Print success | `ctx.printSuccess("done")` |
-| R029 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R030 | Default to current dir | `local target = ctx.currentDir()` |
-| R031 | Move current dir | `ctx.setCurrentDir(target)` |
-| R032 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R033 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R034 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R035 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R036 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R037 | Print success | `ctx.printSuccess("done")` |
-| R038 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R039 | Default to current dir | `local target = ctx.currentDir()` |
-| R040 | Move current dir | `ctx.setCurrentDir(target)` |
-| R041 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R042 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R043 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R044 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R045 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R046 | Print success | `ctx.printSuccess("done")` |
-| R047 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R048 | Default to current dir | `local target = ctx.currentDir()` |
-| R049 | Move current dir | `ctx.setCurrentDir(target)` |
-| R050 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R051 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R052 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R053 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R054 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R055 | Print success | `ctx.printSuccess("done")` |
-| R056 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R057 | Default to current dir | `local target = ctx.currentDir()` |
-| R058 | Move current dir | `ctx.setCurrentDir(target)` |
-| R059 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R060 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R061 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R062 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R063 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R064 | Print success | `ctx.printSuccess("done")` |
-| R065 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R066 | Default to current dir | `local target = ctx.currentDir()` |
-| R067 | Move current dir | `ctx.setCurrentDir(target)` |
-| R068 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R069 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R070 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R071 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R072 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R073 | Print success | `ctx.printSuccess("done")` |
-| R074 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R075 | Default to current dir | `local target = ctx.currentDir()` |
-| R076 | Move current dir | `ctx.setCurrentDir(target)` |
-| R077 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R078 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R079 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R080 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R081 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R082 | Print success | `ctx.printSuccess("done")` |
-| R083 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R084 | Default to current dir | `local target = ctx.currentDir()` |
-| R085 | Move current dir | `ctx.setCurrentDir(target)` |
-| R086 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R087 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R088 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
-| R089 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
-| R090 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
-| R091 | Print success | `ctx.printSuccess("done")` |
-| R092 | Resolve object path | `local obj, err = ctx.resolvePath(path)` |
-| R093 | Default to current dir | `local target = ctx.currentDir()` |
-| R094 | Move current dir | `ctx.setCurrentDir(target)` |
-| R095 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
-| R096 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
-| R097 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
+| R003 | Resolve with class disambiguation | `local obj, err = ctx.resolvePath("Workspace/obj:Sound")` |
+| R004 | Default to current dir | `local target = ctx.currentDir()` |
+| R005 | Move current dir | `ctx.setCurrentDir(target)` |
+| R006 | Read filesystem adapter | `local fs = ctx.fs and ctx.fs()` |
+| R007 | Prompt confirmation | `local ok = ctx.confirm("Proceed? [Y/n] ")` |
+| R008 | Draw progress line | `local line = ctx.printAnimLine("working...")` |
+| R009 | Update progress line | `ctx.updateAnimLine(line, "working... 50%")` |
+| R010 | Render color line | `ctx.printColored(msg, ctx.createColor(200,200,200))` |
