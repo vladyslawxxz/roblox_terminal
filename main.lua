@@ -1055,11 +1055,32 @@ local function loadCommandsWithSplash(onDone)
 	for i, name in ipairs(manifest) do
 		setProgress(0.1 + (i / total) * 0.85, "loading " .. name .. "...")
 		task.wait(0.05)
-		local cmd = loadModule(BASE_URL .. "commands/" .. name .. ".lua")
-		if cmd and cmd.name and cmd.execute then
-			Commands[cmd.name] = cmd
-			loaded = loaded + 1
-			print("[TERMINAL] Loaded command: " .. cmd.name)
+		local result = loadModule(BASE_URL .. "commands/" .. name .. ".lua")
+		local cmds = nil
+		if type(result) == "table" then
+			if type(result.name) == "string" and type(result.execute) == "function" then
+				cmds = { result }
+			else
+				local list = {}
+				for _, item in ipairs(result) do
+					if type(item) == "table" and type(item.name) == "string" and type(item.execute) == "function" then
+						table.insert(list, item)
+					end
+				end
+				if #list > 0 then cmds = list end
+			end
+		end
+		if cmds then
+			for _, cmd in ipairs(cmds) do
+				Commands[cmd.name] = cmd
+				if cmd.aliases then
+					for _, alias in ipairs(cmd.aliases) do
+						Commands[alias] = cmd
+					end
+				end
+				print("[TERMINAL] Loaded command: " .. cmd.name)
+			end
+			loaded = loaded + #cmds
 		else
 			failed = failed + 1
 		end
