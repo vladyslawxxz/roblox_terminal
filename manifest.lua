@@ -13,4 +13,5 @@ return {
 	"pacman",
 	"refcom",
 	"playerlist",
+	"setprop",
 }
