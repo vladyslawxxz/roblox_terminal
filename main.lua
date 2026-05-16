@@ -579,9 +579,22 @@ local function resolvePath(pathStr)
 			current = current.Parent
 			if not current then return nil, "Invalid path: reached root" end
 		elseif part ~= "." then
-			local found = current:FindFirstChild(part)
-			if not found then return nil, "Path not found: " .. part end
-			current = found
+			local name, className = part:match("^(.+):(.+)$")
+			if name and className then
+				local found = nil
+				for _, child in ipairs(current:GetChildren()) do
+					if child.Name == name and child.ClassName:lower() == className:lower() then
+						found = child
+						break
+					end
+				end
+				if not found then return nil, "Path not found: " .. part end
+				current = found
+			else
+				local found = current:FindFirstChild(part)
+				if not found then return nil, "Path not found: " .. part end
+				current = found
+			end
 		end
 	end
 	return current
