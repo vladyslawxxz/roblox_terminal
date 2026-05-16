@@ -118,9 +118,9 @@ local function saveRegistry(fs)
 		local user, repo = key:match("^@([^/]+)/(.+)$")
 		local ver = entry.version or {0, 0, 0}
 		payload[key] = {
-			name = entry.name,
-			user = user or "",
-			repo = repo or "",
+			names   = entry.names,
+			user    = user or "",
+			repo    = repo or "",
 			version = { ver[1] or 0, ver[2] or 0, ver[3] or 0 },
 		}
 	end
@@ -131,6 +131,47 @@ local function saveRegistry(fs)
 	if not ok then return end
 
 	writeTextFile(fs, REGISTRY_PATH, encoded)
+end
+
+local function isSingleCommand(result)
+	return type(result) == "table" and type(result.name) == "string" and type(result.execute) == "function"
+end
+
+local function normalizeCommands(result)
+	if isSingleCommand(result) then return { result } end
+	if type(result) == "table" then
+		local list = {}
+		for _, item in ipairs(result) do
+			if isSingleCommand(item) then
+				table.insert(list, item)
+			end
+		end
+		if #list > 0 then return list end
+	end
+	return nil
+end
+
+local function registerCommands(cmds, ctx)
+	for _, cmd in ipairs(cmds) do
+		ctx.commands[cmd.name] = cmd
+		if cmd.aliases then
+			for _, alias in ipairs(cmd.aliases) do
+				ctx.commands[alias] = cmd
+			end
+		end
+	end
+end
+
+local function unregisterCommands(names, ctx)
+	for _, name in ipairs(names) do
+		local stored = ctx.commands[name]
+		ctx.commands[name] = nil
+		if stored and stored.aliases then
+			for _, alias in ipairs(stored.aliases) do
+				ctx.commands[alias] = nil
+			end
+		end
+	end
 end
 
 local function loadFromDisk(fs, ctx)
@@ -177,21 +218,19 @@ local function loadFromDisk(fs, ctx)
 				if src then
 					local fn = loadstring(src)
 					if fn then
-						local runOk, cmd = pcall(fn)
-						if runOk and type(cmd) == "table" and cmd.name and cmd.execute then
-							ctx.commands[cmd.name] = cmd
-							if cmd.aliases then
-								for _, alias in ipairs(cmd.aliases) do
-									ctx.commands[alias] = cmd
-								end
-							end
+						local runOk, result = pcall(fn)
+						local cmds = runOk and normalizeCommands(result)
+						if cmds then
+							registerCommands(cmds, ctx)
+							local names = {}
+							for _, cmd in ipairs(cmds) do table.insert(names, cmd.name) end
 							installedPackages[pkgKey] = {
-								name = cmd.name,
+								names   = names,
 								version = type(ver) == "table" and {
 									tonumber(ver[1]) or 0,
 									tonumber(ver[2]) or 0,
 									tonumber(ver[3]) or 0,
-								} or (cmd.version or {0, 0, 0}),
+								} or {0, 0, 0},
 							}
 						end
 					end
@@ -298,16 +337,20 @@ return {
 				return
 			end
 
-			local runOk, cmd = pcall(fn)
-			if not runOk or type(cmd) ~= "table" or not cmd.name or not cmd.execute then
-				ctx.printError("invalid package: main.lua must return { name, execute, ... }")
+			local runOk, result = pcall(fn)
+			local cmds = runOk and normalizeCommands(result)
+			if not cmds then
+				ctx.printError("invalid package: main.lua must return a command table or array of command tables")
 				return
 			end
 
-			local ver = parseVersion(cmd.version)
+			local ver = parseVersion(cmds[1].version)
+			local nameList = {}
+			for _, cmd in ipairs(cmds) do table.insert(nameList, cmd.name) end
+			local namesStr = table.concat(nameList, ", ")
 
 			ctx.printLine("")
-			ctx.printLine("Packages (1)  " .. cmd.name .. "-" .. ver)
+			ctx.printLine("Packages (" .. #cmds .. ")  " .. namesStr .. "  v" .. ver)
 			ctx.printLine("")
 			ctx.printInfo("Total Download Size:   0.01 MiB")
 			ctx.printInfo("Total Installed Size:  0.01 MiB")
@@ -321,26 +364,21 @@ return {
 
 			ctx.printLine("")
 
-			local dlUpdate, dlFinish = createProgressBar(ctx, "downloading " .. cmd.name)
+			local dlUpdate, dlFinish = createProgressBar(ctx, "downloading " .. pkg.repo)
 			for i = 1, 20 do dlUpdate(i / 20) task.wait(0.04) end
 			dlFinish()
 			task.wait(0.1)
 
-			local inUpdate, inFinish = createProgressBar(ctx, "installing  " .. cmd.name)
+			local inUpdate, inFinish = createProgressBar(ctx, "installing  " .. pkg.repo)
 			for i = 1, 20 do inUpdate(i / 20) task.wait(0.03) end
 			inFinish()
 			task.wait(0.15)
 
-			ctx.commands[cmd.name] = cmd
-			if cmd.aliases then
-				for _, alias in ipairs(cmd.aliases) do
-					ctx.commands[alias] = cmd
-				end
-			end
+			registerCommands(cmds, ctx)
 
 			installedPackages[pkg.key] = {
-				name    = cmd.name,
-				version = cmd.version or {0, 0, 0},
+				names   = nameList,
+				version = cmds[1].version or {0, 0, 0},
 			}
 
 			if fs then
@@ -352,7 +390,7 @@ return {
 			end
 
 			ctx.printLine("")
-			ctx.printSuccess("(1/1) installing " .. cmd.name .. " v" .. ver .. "  [done]")
+			ctx.printSuccess("(" .. #cmds .. "/" .. #cmds .. ") installed " .. namesStr .. " v" .. ver .. "  [done]")
 
 		elseif flag == "-R" then
 			if #args < 2 then
@@ -372,7 +410,8 @@ return {
 			ctx.printLine("checking dependencies...")
 			task.wait(0.4)
 			ctx.printLine("")
-			ctx.printLine("Packages (1)  " .. entry.name .. "-" .. parseVersion(entry.version))
+			local namesStr = table.concat(entry.names, ", ")
+			ctx.printLine("Packages (" .. #entry.names .. ")  " .. namesStr .. "  " .. parseVersion(entry.version))
 			ctx.printLine("")
 
 			local confirmed = ctx.confirm(":: Do you want to remove these packages? [Y/n] ")
@@ -383,18 +422,12 @@ return {
 
 			ctx.printLine("")
 
-			local rmUpdate, rmFinish = createProgressBar(ctx, "removing    " .. entry.name)
+			local rmUpdate, rmFinish = createProgressBar(ctx, "removing    " .. pkg.repo)
 			for i = 1, 20 do rmUpdate(i / 20) task.wait(0.03) end
 			rmFinish()
 			task.wait(0.15)
 
-			local stored = ctx.commands[entry.name]
-			ctx.commands[entry.name] = nil
-			if stored and stored.aliases then
-				for _, alias in ipairs(stored.aliases) do
-					ctx.commands[alias] = nil
-				end
-			end
+			unregisterCommands(entry.names, ctx)
 			installedPackages[pkg.key] = nil
 
 			if fs then
@@ -412,14 +445,15 @@ return {
 			end
 
 			ctx.printLine("")
-			ctx.printSuccess("(1/1) removing  " .. entry.name .. "  [done]")
+			ctx.printSuccess("(" .. #entry.names .. "/" .. #entry.names .. ") removed " .. namesStr .. "  [done]")
 
 		elseif flag == "-Q" then
 			local count = 0
 			for key, entry in pairs(installedPackages) do
+				local namesStr = type(entry.names) == "table" and table.concat(entry.names, ", ") or "?"
 				ctx.printLine(
-					string.format("  %-16s %s  (%s)",
-						entry.name, parseVersion(entry.version), key)
+					string.format("  %-24s %s  (%s)",
+						namesStr, parseVersion(entry.version), key)
 				)
 				count = count + 1
 			end
