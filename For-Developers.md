@@ -170,16 +170,46 @@ Filesystem adapter methods expected by commands that persist data:
 
 ## 7. Package Lifecycle (`pacman`)
 
+A package `main.lua` can return either a single command table or an array of command tables. Both formats are supported everywhere — install, remove, startup restore, and built-in manifest loading.
+
+Single command:
+```lua
+return {
+    name = "hello",
+    execute = function(args, ctx) ctx.printLine("hi") end,
+}
+```
+
+Multiple commands:
+```lua
+return {
+    {
+        name    = "math-add",
+        aliases = { "add" },
+        execute = function(args, ctx)
+            ctx.printLine(tonumber(args[1]) + tonumber(args[2]))
+        end,
+    },
+    {
+        name    = "math-sub",
+        aliases = { "sub" },
+        execute = function(args, ctx)
+            ctx.printLine(tonumber(args[1]) - tonumber(args[2]))
+        end,
+    },
+}
+```
+
 ### 7.1 Install
 
 | Step | Action | Result |
 |---|---|---|
 | 1 | Validate package ID format `@user/repo` | Rejects invalid format |
 | 2 | Download `https://raw.githubusercontent.com/user/repo/refs/heads/main/main.lua` | Receives source |
-| 3 | `loadstring` + execute module | Command table returned |
-| 4 | Register command and aliases in `ctx.commands` | Command becomes executable immediately |
+| 3 | `loadstring` + execute module | Single command table or array returned |
+| 4 | Register all commands and their aliases in `ctx.commands` | All commands become executable immediately |
 | 5 | Save package source to local cache | `Roblox-Terminal/pkg/{user}/{repo}/main.lua` |
-| 6 | Save registry JSON | `Roblox-Terminal/pkg/installed.json` |
+| 6 | Save registry JSON with `names` array | `Roblox-Terminal/pkg/installed.json` |
 
 ### 7.2 Remove
 
@@ -188,7 +218,7 @@ Filesystem adapter methods expected by commands that persist data:
 | 1 | Validate package ID | Reject unknown format |
 | 2 | Lookup installed entry | Reject if not installed |
 | 3 | Confirm removal | Supports abort |
-| 4 | Unregister command and aliases | Command no longer callable |
+| 4 | Unregister all commands and their aliases | All commands removed |
 | 5 | Delete cached `main.lua` and package folder | Local package removed |
 | 6 | Rewrite registry JSON | State consistent |
 
