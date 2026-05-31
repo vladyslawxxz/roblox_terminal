@@ -11,6 +11,16 @@ local function parseVersion(v)
 	return (v[1] or 0) .. "." .. (v[2] or 0) .. "." .. (v[3] or 0)
 end
 
+local function formatSize(bytes)
+	if bytes < 1024 then
+		return bytes .. " B"
+	elseif bytes < 1024 * 1024 then
+		return string.format("%.2f KiB", bytes / 1024)
+	else
+		return string.format("%.2f MiB", bytes / (1024 * 1024))
+	end
+end
+
 local function parsePackage(raw)
 	local user, repo = raw:match("^@([^/]+)/(.+)$")
 	if not user or not repo then
@@ -296,13 +306,188 @@ return {
 		end
 
 		if #args < 1 then
-			ctx.printError("usage: pacman -S @user/repo | -R @user/repo | -Q")
+			ctx.printError("usage: pacman -S @user/repo | -R @user/repo | -Q | -Sy | -Syu | -Si @user/repo | -Sc | -U <path>")
 			return
 		end
 
 		local flag = args[1]
 
-		if flag == "-S" then
+		if flag == "-Sy" or flag == "-Syu" then
+			ctx.printInfo(":: Syncing package database...")
+			task.wait(0.3)
+			local count = 0
+			for _ in pairs(installedPackages) do count = count + 1 end
+			ctx.printSuccess("database synced. " .. count .. " package(s) registered.")
+
+			if flag == "-Syu" then
+				ctx.printLine("")
+				ctx.printInfo(":: Starting full system upgrade...")
+				task.wait(0.3)
+				if count == 0 then
+					ctx.printInfo("nothing to upgrade.")
+					return
+				end
+
+				local upgraded = 0
+				for key, entry in pairs(installedPackages) do
+					local user, repo = key:match("^@([^/]+)/(.+)$")
+					if user and repo then
+						local url = buildUrl(user, repo)
+						ctx.printLine("upgrading " .. key .. "...")
+						local ok, src = pcall(function() return game:HttpGet(url) end)
+						if ok and src and src ~= "" then
+							local fn = loadstring(src)
+							if fn then
+								local runOk, result = pcall(fn)
+								local cmds = runOk and normalizeCommands(result)
+								if cmds then
+								local oldNames = entry.names
+									unregisterCommands(oldNames, ctx)
+									registerCommands(cmds, ctx)
+									local names = {}
+									for _, cmd in ipairs(cmds) do table.insert(names, cmd.name) end
+									installedPackages[key] = {
+										names   = names,
+										version = cmds[1].version or {0, 0, 0},
+									}
+									if fs then
+										writePackageFile(fs, user, repo, src)
+									end
+									upgraded = upgraded + 1
+								end
+							end
+						else
+							ctx.printError("failed to fetch " .. key .. ", skipping.")
+						end
+					end
+				end
+
+				if fs then saveRegistry(fs) end
+				ctx.printLine("")
+				ctx.printSuccess("upgraded " .. upgraded .. "/" .. count .. " package(s).")
+			end
+
+		elseif flag == "-Si" then
+			if #args < 2 then
+				ctx.printError("usage: pacman -Si @username/reponame")
+				return
+			end
+
+			local pkg, err = parsePackage(args[2])
+			if not pkg then ctx.printError(err) return end
+
+			local entry = installedPackages[pkg.key]
+			if not entry then
+				ctx.printError("package not installed: " .. pkg.key)
+				return
+			end
+
+			local namesStr = type(entry.names) == "table" and table.concat(entry.names, ", ") or "?"
+			ctx.printLine("Name        : " .. pkg.repo)
+			ctx.printLine("Repository  : " .. pkg.user)
+			ctx.printLine("Version     : " .. parseVersion(entry.version))
+			ctx.printLine("Commands    : " .. namesStr)
+			ctx.printLine("Install URL : " .. buildUrl(pkg.user, pkg.repo))
+
+		elseif flag == "-Sc" then
+			ctx.printInfo(":: Clearing package cache...")
+			task.wait(0.3)
+
+			if not fs then
+				ctx.printError("filesystem not available.")
+				return
+			end
+
+			local cleaned = 0
+			for key, _ in pairs(installedPackages) do
+				local user, repo = key:match("^@([^/]+)/(.+)$")
+				if user and repo then
+					local filePath = normalizePath(packageMainPath(user, repo), "/")
+					local dirPath  = normalizePath(packageDir(user, repo), "/")
+					pcall(function()
+						if fs.isfile(filePath) then fs.delfile(filePath) cleaned = cleaned + 1 end
+						if fs.isfolder(dirPath) then fs.delfolder(dirPath) end
+					end)
+				end
+			end
+
+			ctx.printSuccess("cleared " .. cleaned .. " cached file(s).")
+
+		elseif flag == "-U" then
+			if #args < 2 then
+				ctx.printError("usage: pacman -U <local_path>")
+				return
+			end
+
+			if not fs then
+				ctx.printError("filesystem not available.")
+				return
+			end
+
+			local localPath = args[2]
+			local src = tryReadFile(fs, localPath)
+			if not src or src == "" then
+				ctx.printError("cannot read file: " .. localPath)
+				return
+			end
+
+			local fn, parseErr = loadstring(src)
+			if not fn then
+				ctx.printError("parse error: " .. tostring(parseErr))
+				return
+			end
+
+			local runOk, result = pcall(fn)
+			local cmds = runOk and normalizeCommands(result)
+			if not cmds then
+				ctx.printError("invalid package: main.lua must return a command table or array of command tables")
+				return
+			end
+
+			-- derive package key from module name field
+			local modName = cmds[1].name
+			local pkgKey = "@local/" .. modName
+
+			if installedPackages[pkgKey] then
+				unregisterCommands(installedPackages[pkgKey].names, ctx)
+			end
+
+			local ver = parseVersion(cmds[1].version)
+			local nameList = {}
+			for _, cmd in ipairs(cmds) do table.insert(nameList, cmd.name) end
+			local namesStr = table.concat(nameList, ", ")
+			local srcBytes = #src
+
+			ctx.printLine("Packages (" .. #cmds .. ")  " .. namesStr .. "  v" .. ver)
+			ctx.printLine("")
+			ctx.printInfo("Total Installed Size:  " .. formatSize(srcBytes))
+			ctx.printLine("")
+
+			local confirmed = ctx.confirm(":: Proceed with local install? [Y/n] ")
+			if not confirmed then ctx.printLine("Aborted.") return end
+
+			task.wait(0.1)
+			ctx.printLine("")
+
+			local inUpdate, inFinish = createProgressBar(ctx, "installing  " .. modName)
+			for i = 1, 20 do inUpdate(i / 20) task.wait(0.03) end
+			inFinish()
+			task.wait(0.15)
+
+			registerCommands(cmds, ctx)
+			installedPackages[pkgKey] = {
+				names   = nameList,
+				version = cmds[1].version or {0, 0, 0},
+			}
+
+			local user, repo = pkgKey:match("^@([^/]+)/(.+)$")
+			writePackageFile(fs, user, repo, src)
+			saveRegistry(fs)
+
+			ctx.printLine("")
+			ctx.printSuccess("(" .. #cmds .. "/" .. #cmds .. ") installed " .. namesStr .. " v" .. ver .. "  [done]")
+
+		elseif flag == "-S" then
 			if #args < 2 then
 				ctx.printError("usage: pacman -S @username/reponame")
 				return
@@ -349,11 +534,12 @@ return {
 			for _, cmd in ipairs(cmds) do table.insert(nameList, cmd.name) end
 			local namesStr = table.concat(nameList, ", ")
 
+			local srcBytes = #src
 			ctx.printLine("")
 			ctx.printLine("Packages (" .. #cmds .. ")  " .. namesStr .. "  v" .. ver)
 			ctx.printLine("")
-			ctx.printInfo("Total Download Size:   0.01 MiB")
-			ctx.printInfo("Total Installed Size:  0.01 MiB")
+			ctx.printInfo("Total Download Size:   " .. formatSize(srcBytes))
+			ctx.printInfo("Total Installed Size:  " .. formatSize(srcBytes))
 			ctx.printLine("")
 
 			local confirmed = ctx.confirm(":: Proceed with installation? [Y/n] ")
@@ -362,6 +548,7 @@ return {
 				return
 			end
 
+			task.wait(0.1)
 			ctx.printLine("")
 
 			local dlUpdate, dlFinish = createProgressBar(ctx, "downloading " .. pkg.repo)
@@ -407,11 +594,11 @@ return {
 				return
 			end
 
+			local namesStr = type(entry.names) == "table" and table.concat(entry.names, ", ") or "?"
 			ctx.printLine("checking dependencies...")
 			task.wait(0.4)
 			ctx.printLine("")
-			local namesStr = table.concat(entry.names, ", ")
-			ctx.printLine("Packages (" .. #entry.names .. ")  " .. namesStr .. "  " .. parseVersion(entry.version))
+			ctx.printLine("Packages (" .. (type(entry.names) == "table" and #entry.names or 1) .. ")  " .. namesStr .. "  " .. parseVersion(entry.version))
 			ctx.printLine("")
 
 			local confirmed = ctx.confirm(":: Do you want to remove these packages? [Y/n] ")
@@ -420,6 +607,7 @@ return {
 				return
 			end
 
+			task.wait(0.1)
 			ctx.printLine("")
 
 			local rmUpdate, rmFinish = createProgressBar(ctx, "removing    " .. pkg.repo)
@@ -444,8 +632,9 @@ return {
 				saveRegistry(fs)
 			end
 
+			local nameCount = type(entry.names) == "table" and #entry.names or 1
 			ctx.printLine("")
-			ctx.printSuccess("(" .. #entry.names .. "/" .. #entry.names .. ") removed " .. namesStr .. "  [done]")
+			ctx.printSuccess("(" .. nameCount .. "/" .. nameCount .. ") removed " .. namesStr .. "  [done]")
 
 		elseif flag == "-Q" then
 			local count = 0
@@ -465,7 +654,7 @@ return {
 			end
 
 		else
-			ctx.printError("unknown flag: " .. flag .. ". Use -S, -R or -Q")
+			ctx.printError("unknown flag: " .. flag .. ". Use -S, -R, -Q, -Sy, -Syu, -Si, -Sc, -U")
 		end
 	end,
 }
